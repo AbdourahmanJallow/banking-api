@@ -6,19 +6,25 @@ import { sendSuccess, sendCreated } from '../../utils/response';
 
 export const register = asyncHandler(async (req: Request, res: Response) => {
     const input = RegisterSchema.parse(req.body);
+
     const result = await authService.register(input);
+
     sendCreated(res, result, 'Account created successfully');
 });
 
 export const login = asyncHandler(async (req: Request, res: Response) => {
     const input = LoginSchema.parse(req.body);
+
     const result = await authService.login(input);
+
     sendSuccess(res, result, 'Login successful');
 });
 
 export const refresh = asyncHandler(async (req: Request, res: Response) => {
     const { refreshToken } = RefreshTokenSchema.parse(req.body);
+
     const tokens = await authService.refreshToken(refreshToken);
+
     sendSuccess(res, tokens, 'Token refreshed');
 });
 

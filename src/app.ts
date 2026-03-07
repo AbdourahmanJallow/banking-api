@@ -60,7 +60,7 @@ export function createApp(): Express {
     });
 
     // ── API routes ───────────────────────────────────────────────────────────
-    app.use('/api', apiRouter);
+    app.use('/api/v1', apiRouter);
 
     // ── 404 ─────────────────────────────────────────────────────────────────
     app.use((_req: Request, res: Response) => {

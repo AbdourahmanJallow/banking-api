@@ -11,11 +11,14 @@ import { AppError } from '../../utils/AppError';
 export const createAccount = asyncHandler(
     async (req: Request, res: Response) => {
         if (!req.user) throw AppError.unauthorized();
+
         const input = CreateAccountSchema.parse(req.body);
+
         const account = await accountService.createAccount(
             req.user.userId,
             input,
         );
+
         sendCreated(res, account, 'Account created successfully');
     },
 );
@@ -23,15 +26,18 @@ export const createAccount = asyncHandler(
 export const getMyAccounts = asyncHandler(
     async (req: Request, res: Response) => {
         if (!req.user) throw AppError.unauthorized();
+
         const accounts = await accountService.getUserAccounts(req.user.userId);
+
         sendSuccess(res, accounts);
     },
 );
 
 export const getAccount = asyncHandler(async (req: Request, res: Response) => {
     if (!req.user) throw AppError.unauthorized();
+
     const account = await accountService.getAccount(
-        req.params.id,
+        req.params.id as string,
         req.user.userId,
     );
     sendSuccess(res, account);
@@ -40,12 +46,15 @@ export const getAccount = asyncHandler(async (req: Request, res: Response) => {
 export const updateAccountStatus = asyncHandler(
     async (req: Request, res: Response) => {
         if (!req.user) throw AppError.unauthorized();
+
         const input = UpdateAccountStatusSchema.parse(req.body);
+
         const account = await accountService.updateAccountStatus(
-            req.params.id,
+            req.params.id as string,
             input,
             req.user.userId,
         );
+
         sendSuccess(res, account, 'Account status updated');
     },
 );
