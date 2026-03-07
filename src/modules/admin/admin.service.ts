@@ -16,6 +16,7 @@ class AdminService {
 
     async listAllUsers(page = 1, limit = 20) {
         const skip = (page - 1) * limit;
+
         const [users, total] = await prisma.$transaction([
             prisma.user.findMany({
                 skip,
@@ -33,17 +34,21 @@ class AdminService {
             }),
             prisma.user.count(),
         ]);
+
         return { users, total };
     }
 
     async setUserStatus(userId: string, status: string) {
         const user = await prisma.user.findUnique({ where: { id: userId } });
+
         if (!user) throw AppError.notFound('User not found');
+
         return prisma.user.update({ where: { id: userId }, data: { status } });
     }
 
     async getAuditLogs(page = 1, limit = 50) {
         const skip = (page - 1) * limit;
+
         const [logs, total] = await prisma.$transaction([
             prisma.auditLog.findMany({
                 skip,
@@ -52,6 +57,7 @@ class AdminService {
             }),
             prisma.auditLog.count(),
         ]);
+
         return { logs, total };
     }
 

@@ -1,4 +1,4 @@
-import * as AccountRepository from './account.repository';
+import { accountRepository } from './account.repository';
 import { CreateAccountInput, UpdateAccountStatusInput } from './account.types';
 import { generateAccountNumber } from '../../utils/generateAccountNumber';
 import { AppError } from '../../utils/AppError';
@@ -12,18 +12,18 @@ class AccountService {
             accountNumber = generateAccountNumber();
 
             const existing =
-                await AccountRepository.findByAccountNumber(accountNumber);
+                await accountRepository.findByAccountNumber(accountNumber);
 
             if (!existing) break;
 
             attempts++;
         } while (attempts < 3);
 
-        return AccountRepository.create(userId, input.currency, accountNumber!);
+        return accountRepository.create(userId, input.currency, accountNumber!);
     }
 
     async getAccount(accountId: string, requestingUserId: string) {
-        const account = await AccountRepository.findById(accountId);
+        const account = await accountRepository.findById(accountId);
 
         if (!account) throw AppError.notFound('Account not found');
 
@@ -34,7 +34,7 @@ class AccountService {
     }
 
     async getUserAccounts(userId: string) {
-        return AccountRepository.findByUserId(userId);
+        return accountRepository.findByUserId(userId);
     }
 
     async updateAccountStatus(
@@ -42,14 +42,14 @@ class AccountService {
         input: UpdateAccountStatusInput,
         requestingUserId: string,
     ) {
-        const account = await AccountRepository.findById(accountId);
+        const account = await accountRepository.findById(accountId);
 
         if (!account) throw AppError.notFound('Account not found');
 
         if (account.userId !== requestingUserId)
             throw AppError.forbidden('Access denied');
 
-        return AccountRepository.updateStatus(accountId, input.status);
+        return accountRepository.updateStatus(accountId, input.status);
     }
 }
 

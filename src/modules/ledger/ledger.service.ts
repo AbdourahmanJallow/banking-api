@@ -1,6 +1,6 @@
-import * as LedgerRepository from './ledger.repository';
-import * as AccountRepository from '../accounts/account.repository';
-import * as TransactionRepository from '../transactions/transaction.repository';
+import { ledgerRepository } from './ledger.repository';
+import { accountRepository } from '../accounts/account.repository';
+import { transactionRepository } from '../transactions/transaction.repository';
 import {
     EntryType,
     TransactionStatus,
@@ -20,8 +20,8 @@ class LedgerService {
         amount: number,
     ): Promise<void> {
         const [from, to] = await Promise.all([
-            AccountRepository.findById(fromAccountId),
-            AccountRepository.findById(toAccountId),
+            accountRepository.findById(fromAccountId),
+            accountRepository.findById(toAccountId),
         ]);
 
         if (!from) throw AppError.notFound('Source account not found');
@@ -38,26 +38,26 @@ class LedgerService {
             throw AppError.badRequest('Currency mismatch', 'CURRENCY_MISMATCH');
 
         await Promise.all([
-            LedgerRepository.createEntry({
+            ledgerRepository.createEntry({
                 transactionId,
                 accountId: fromAccountId,
                 entryType: EntryType.DEBIT,
                 amount,
             }),
-            LedgerRepository.createEntry({
+            ledgerRepository.createEntry({
                 transactionId,
                 accountId: toAccountId,
                 entryType: EntryType.CREDIT,
                 amount,
             }),
-            AccountRepository.updateBalance(
+            accountRepository.updateBalance(
                 fromAccountId,
                 from.balance - amount,
             ),
-            AccountRepository.updateBalance(toAccountId, to.balance + amount),
+            accountRepository.updateBalance(toAccountId, to.balance + amount),
         ]);
 
-        await TransactionRepository.updateStatus(
+        await transactionRepository.updateStatus(
             transactionId,
             TransactionStatus.COMPLETED,
         );
@@ -68,24 +68,24 @@ class LedgerService {
         accountId: string,
         amount: number,
     ): Promise<void> {
-        const account = await AccountRepository.findById(accountId);
+        const account = await accountRepository.findById(accountId);
 
         if (!account) throw AppError.notFound('Account not found');
 
         await Promise.all([
-            LedgerRepository.createEntry({
+            ledgerRepository.createEntry({
                 transactionId,
                 accountId,
                 entryType: EntryType.CREDIT,
                 amount,
             }),
-            AccountRepository.updateBalance(
+            accountRepository.updateBalance(
                 accountId,
                 account.balance + amount,
             ),
         ]);
 
-        await TransactionRepository.updateStatus(
+        await transactionRepository.updateStatus(
             transactionId,
             TransactionStatus.COMPLETED,
         );
@@ -96,7 +96,7 @@ class LedgerService {
         accountId: string,
         amount: number,
     ): Promise<void> {
-        const account = await AccountRepository.findById(accountId);
+        const account = await accountRepository.findById(accountId);
 
         if (!account) throw AppError.notFound('Account not found');
 
@@ -107,19 +107,19 @@ class LedgerService {
             );
 
         await Promise.all([
-            LedgerRepository.createEntry({
+            ledgerRepository.createEntry({
                 transactionId,
                 accountId,
                 entryType: EntryType.DEBIT,
                 amount,
             }),
-            AccountRepository.updateBalance(
+            accountRepository.updateBalance(
                 accountId,
                 account.balance - amount,
             ),
         ]);
 
-        await TransactionRepository.updateStatus(
+        await transactionRepository.updateStatus(
             transactionId,
             TransactionStatus.COMPLETED,
         );

@@ -1,5 +1,5 @@
 import bcrypt from 'bcrypt';
-import * as UserRepository from './user.repository';
+import { userRepository } from './user.repository';
 import { UpdateUserInput, ChangePasswordInput, UserPublic } from './user.types';
 import { AppError } from '../../utils/AppError';
 
@@ -7,7 +7,7 @@ class UserService {
     private readonly SALT_ROUNDS = 12;
 
     async getProfile(userId: string): Promise<UserPublic> {
-        const user = await UserRepository.findById(userId);
+        const user = await userRepository.findById(userId);
 
         if (!user) throw AppError.notFound('User not found');
 
@@ -20,7 +20,7 @@ class UserService {
         userId: string,
         input: UpdateUserInput,
     ): Promise<UserPublic> {
-        const user = await UserRepository.update(userId, input);
+        const user = await userRepository.update(userId, input);
 
         const { passwordHash: _, ...profile } = user;
 
@@ -31,7 +31,7 @@ class UserService {
         userId: string,
         input: ChangePasswordInput,
     ): Promise<void> {
-        const user = await UserRepository.findById(userId);
+        const user = await userRepository.findById(userId);
 
         if (!user) throw AppError.notFound('User not found');
 
@@ -48,19 +48,19 @@ class UserService {
 
         const hash = await bcrypt.hash(input.newPassword, this.SALT_ROUNDS);
 
-        await UserRepository.updatePassword(userId, hash);
+        await userRepository.updatePassword(userId, hash);
     }
 
     async listUsers(page: number, limit: number) {
-        return UserRepository.findAll(page, limit);
+        return userRepository.findAll(page, limit);
     }
 
     async deactivateUser(userId: string): Promise<void> {
-        const user = await UserRepository.findById(userId);
+        const user = await userRepository.findById(userId);
 
         if (!user) throw AppError.notFound('User not found');
 
-        await UserRepository.deactivate(userId);
+        await userRepository.deactivate(userId);
     }
 }
 
