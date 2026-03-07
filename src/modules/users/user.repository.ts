@@ -1,4 +1,4 @@
-import prisma from '../../config/connection';
+import prisma from '../../lib/prisma';
 import { UpdateUserInput } from './user.types';
 
 export async function findById(id: string) {

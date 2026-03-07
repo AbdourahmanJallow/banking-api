@@ -1,4 +1,4 @@
-import prisma from '../../config/connection';
+import prisma from '../../lib/prisma';
 
 export async function createEntry(data: {
     transactionId: string;
