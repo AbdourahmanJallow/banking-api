@@ -1,3 +1,4 @@
+import 'colors';
 import 'dotenv/config';
 import { createApp } from './app';
 import { config } from './config';
@@ -10,9 +11,10 @@ async function main() {
     const app = createApp();
     const server = app.listen(config.server.port, config.server.host, () => {
         console.log(
-            `🚀 Banking API running on http://${config.server.host}:${config.server.port}`,
+            `🚀 Banking API running on http://${config.server.host}:${config.server.port}`
+                .green,
         );
-        console.log(`Environment: ${config.env}`);
+        // console.log(`Environment: ${config.env}`);
     });
 
     // Graceful shutdown handler

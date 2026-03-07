@@ -5,11 +5,7 @@ import rateLimit from 'express-rate-limit';
 import { logger } from './middleware/logger';
 import { errorHandler } from './middleware/errorHandler';
 import { config } from './config';
-import { authRouter } from './modules/auth/auth.routes';
-import { userRouter } from './modules/users/user.routes';
-import { accountRouter } from './modules/accounts/account.routes';
-import { transactionRouter } from './modules/transactions/transaction.routes';
-import { adminRouter } from './modules/admin/admin.routes';
+import apiRouter from './routes';
 
 export function createApp(): Express {
     const app = express();
@@ -64,11 +60,7 @@ export function createApp(): Express {
     });
 
     // ── API routes ───────────────────────────────────────────────────────────
-    app.use('/api/auth', authRouter);
-    app.use('/api/users', userRouter);
-    app.use('/api/accounts', accountRouter);
-    app.use('/api/transactions', transactionRouter);
-    app.use('/api/admin', adminRouter);
+    app.use('/api', apiRouter);
 
     // ── 404 ─────────────────────────────────────────────────────────────────
     app.use((_req: Request, res: Response) => {

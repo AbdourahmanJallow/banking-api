@@ -16,8 +16,10 @@ export function sendSuccess<T>(
     meta?: Record<string, unknown>,
 ): Response {
     const body: ApiResponse<T> = { success: true, data };
+
     if (message) body.message = message;
     if (meta) body.meta = meta;
+
     return res.status(statusCode).json(body);
 }
 

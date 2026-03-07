@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import * as AccountService from './account.service';
+import { accountService } from './account.service';
 import {
     CreateAccountSchema,
     UpdateAccountStatusSchema,
@@ -12,7 +12,7 @@ export const createAccount = asyncHandler(
     async (req: Request, res: Response) => {
         if (!req.user) throw AppError.unauthorized();
         const input = CreateAccountSchema.parse(req.body);
-        const account = await AccountService.createAccount(
+        const account = await accountService.createAccount(
             req.user.userId,
             input,
         );
@@ -23,14 +23,14 @@ export const createAccount = asyncHandler(
 export const getMyAccounts = asyncHandler(
     async (req: Request, res: Response) => {
         if (!req.user) throw AppError.unauthorized();
-        const accounts = await AccountService.getUserAccounts(req.user.userId);
+        const accounts = await accountService.getUserAccounts(req.user.userId);
         sendSuccess(res, accounts);
     },
 );
 
 export const getAccount = asyncHandler(async (req: Request, res: Response) => {
     if (!req.user) throw AppError.unauthorized();
-    const account = await AccountService.getAccount(
+    const account = await accountService.getAccount(
         req.params.id,
         req.user.userId,
     );
@@ -41,7 +41,7 @@ export const updateAccountStatus = asyncHandler(
     async (req: Request, res: Response) => {
         if (!req.user) throw AppError.unauthorized();
         const input = UpdateAccountStatusSchema.parse(req.body);
-        const account = await AccountService.updateAccountStatus(
+        const account = await accountService.updateAccountStatus(
             req.params.id,
             input,
             req.user.userId,
