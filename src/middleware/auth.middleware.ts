@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { config } from '../config';
 import { AppError } from '../utils/AppError';
 import { asyncHandler } from '../utils/asyncHandler';
+import { redisService } from '../config/redis';
 
 export interface JwtPayload {
     userId: string;
@@ -21,8 +22,8 @@ declare global {
 }
 
 /**
- * Verifies the Bearer token in the Authorization header and
- * attaches the decoded payload to req.user.
+ * Verifies the Bearer token in the Authorization header,
+ * checks the Redis blacklist, and attaches the decoded payload to req.user.
  */
 export const authenticate = asyncHandler(
     async (req: Request, _res: Response, next: NextFunction) => {
@@ -34,15 +35,28 @@ export const authenticate = asyncHandler(
 
         const token = authHeader.split(' ')[1];
 
-        const decoded = jwt.verify(token, config.jwt.secret) as JwtPayload;
+        // Reject blacklisted tokens (logged-out sessions)
+        if (redisService.connected) {
+            const blacklisted = await redisService.isTokenBlacklisted(token);
+
+            if (blacklisted)
+                throw AppError.unauthorized('Token has been revoked');
+        }
+
+        let decoded: JwtPayload;
+        try {
+            decoded = jwt.verify(token, config.jwt.secret) as JwtPayload;
+        } catch {
+            throw AppError.unauthorized('Invalid or expired token');
+        }
+
         req.user = decoded;
         next();
     },
 );
 
 /**
- * Use after authenticate() to restrict a route to certain user IDs.
- * Controllers can call this for ownership checks.
+ * Use after authenticate() to restrict a route to the resource owner.
  */
 export const requireOwnership = (getResourceUserId: (req: Request) => string) =>
     asyncHandler(async (req: Request, _res: Response, next: NextFunction) => {

@@ -2,11 +2,12 @@ import 'colors';
 import 'dotenv/config';
 import { createApp } from './app';
 import { config } from './config';
-
 import { connectDB, gracefulShutdown } from './lib/prisma';
+import { connectRedis, disconnectRedis } from './config/redis';
 
 async function main() {
     await connectDB();
+    await connectRedis();
 
     const app = createApp();
     const server = app.listen(config.server.port, config.server.host, () => {
@@ -22,6 +23,7 @@ async function main() {
         console.log(`\n${signal} received, shutting down gracefully...`);
         server.close(async () => {
             await gracefulShutdown();
+            await disconnectRedis();
             process.exit(0);
         });
 

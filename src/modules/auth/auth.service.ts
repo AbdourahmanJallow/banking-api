@@ -3,12 +3,23 @@ import jwt from 'jsonwebtoken';
 import prisma from '../../lib/prisma';
 import { config } from '../../config';
 import { AppError } from '../../utils/AppError';
+import { redisService } from '../../config/redis';
 import {
     RegisterInput,
     LoginInput,
     TokenPair,
     AuthResponse,
 } from './auth.types';
+
+/** Converts a JWT expiry string like "7d", "15m", "1h" to seconds */
+export function parseTTL(exp: string): number {
+    const units: Record<string, number> = { s: 1, m: 60, h: 3600, d: 86400 };
+
+    const match = exp.match(/^(\d+)([smhd])$/);
+    if (!match) return 3600;
+
+    return parseInt(match[1]) * (units[match[2]] ?? 1);
+}
 
 class AuthService {
     private readonly SALT_ROUNDS = 12;
@@ -49,6 +60,7 @@ class AuthService {
         });
 
         const tokens = this.generateTokens(user.id, user.email);
+
         return {
             user: { id: user.id, email: user.email, fullName: user.fullName },
             tokens,
@@ -59,11 +71,9 @@ class AuthService {
         const user = await prisma.user.findUnique({
             where: { email: input.email },
         });
-
         if (!user) throw AppError.unauthorized('Invalid email or password');
 
         const valid = await bcrypt.compare(input.password, user.passwordHash);
-
         if (!valid) throw AppError.unauthorized('Invalid email or password');
 
         if (user.status !== 'ACTIVE')
@@ -73,6 +83,14 @@ class AuthService {
             );
 
         const tokens = this.generateTokens(user.id, user.email);
+
+        if (redisService.connected) {
+            await redisService.storeRefreshToken(
+                user.id,
+                tokens.refreshToken,
+                parseTTL(config.jwt.refreshExpiresIn),
+            );
+        }
 
         return {
             user: { id: user.id, email: user.email, fullName: user.fullName },
@@ -89,6 +107,14 @@ class AuthService {
             throw AppError.unauthorized('Invalid or expired refresh token');
         }
 
+        // Reject if the refresh token was revoked on logout
+        if (redisService.connected) {
+            const stored = await redisService.getRefreshToken(payload.userId);
+            if (!stored || stored !== token) {
+                throw AppError.unauthorized('Refresh token has been revoked');
+            }
+        }
+
         const user = await prisma.user.findUnique({
             where: { id: payload.userId },
         });
@@ -96,7 +122,41 @@ class AuthService {
         if (!user || user.status !== 'ACTIVE')
             throw AppError.unauthorized('User not found or inactive');
 
-        return this.generateTokens(user.id, user.email);
+        const tokens = this.generateTokens(user.id, user.email);
+
+        // Rotate: store new refresh token, revoke the old one
+        if (redisService.connected) {
+            await redisService.storeRefreshToken(
+                user.id,
+                tokens.refreshToken,
+                parseTTL(config.jwt.refreshExpiresIn),
+            );
+        }
+
+        return tokens;
+    }
+
+    /**
+     * Blacklists the access token and revokes the stored refresh token.
+     * TTL of the blacklist entry mirrors the access token's remaining lifetime.
+     */
+    async logout(accessToken: string, userId: string): Promise<void> {
+        if (!redisService.connected) return;
+
+        try {
+            const decoded = jwt.decode(accessToken) as { exp?: number } | null;
+
+            const remainingTTL = decoded?.exp
+                ? Math.max(decoded.exp - Math.floor(Date.now() / 1000), 1)
+                : parseTTL(config.jwt.expiresIn);
+
+            await Promise.all([
+                redisService.blacklistToken(accessToken, remainingTTL),
+                redisService.revokeRefreshToken(userId),
+            ]);
+        } catch (err) {
+            console.warn('[Auth] logout Redis error (non-fatal):', err);
+        }
     }
 }
 

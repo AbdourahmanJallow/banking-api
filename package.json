@@ -6,6 +6,24 @@
     "directories": {
         "test": "tests"
     },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "type": "module",
+    "scripts": {
+        "dev": "nodemon --exec tsx src/server.ts --ext ts",
+        "start": "tsx src/server.ts",
+        "db:push": "prisma db push",
+        "db:generate": "prisma generate",
+        "db:migrate": "prisma migrate dev",
+        "db:studio": "prisma studio",
+        "db:seed": "tsx prisma/seed.ts",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "test:coverage": "vitest run --coverage",
+        "test:unit": "vitest run tests/unit",
+        "test:integration": "vitest run tests/integration"
+    },
     "dependencies": {
         "@prisma/adapter-pg": "^7.4.2",
         "@prisma/client": "^7.4.2",
@@ -29,24 +47,14 @@
         "@types/jsonwebtoken": "^9.0.10",
         "@types/node": "^25.3.5",
         "@types/pg": "^8.18.0",
+        "@types/supertest": "^7.2.0",
+        "@vitest/coverage-v8": "^4.0.18",
         "dotenv": "^17.3.1",
         "nodemon": "^3.1.14",
         "prisma": "^7.4.2",
+        "supertest": "^7.2.2",
         "tsx": "^4.21.0",
-        "typescript": "^5.9.3"
-    },
-    "scripts": {
-        "dev": "nodemon --exec tsx src/server.ts --ext ts",
-        "start": "tsx src/server.ts",
-        "db:push": "prisma db push",
-        "db:generate": "prisma generate",
-        "db:migrate": "prisma migrate dev",
-        "db:studio": "prisma studio",
-        "db:seed": "tsx prisma/seed.ts",
-        "test": "echo \"Error: no test specified\" && exit 1"
-    },
-    "keywords": [],
-    "author": "",
-    "license": "ISC",
-    "type": "module"
+        "typescript": "^5.9.3",
+        "vitest": "^4.0.18"
+    }
 }
