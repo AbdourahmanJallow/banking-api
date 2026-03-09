@@ -1,13 +1,13 @@
 import { Router } from 'express';
-import * as AuthController from './auth.controller';
+import { register, login, logout, me, refresh } from './auth.controller';
 import { authenticate } from '../../middleware/auth.middleware';
 
 const router = Router();
 
-router.post('/register', AuthController.register);
-router.post('/login', AuthController.login);
-router.post('/refresh', AuthController.refresh);
-router.post('/logout', authenticate, AuthController.logout); // requires valid token
-router.get('/me', authenticate, AuthController.me);
+router.post('/register', register);
+router.post('/login', login);
+router.post('/refresh', refresh);
+router.post('/logout', authenticate, logout); // requires valid token
+router.get('/me', authenticate, me);
 
 export { router as authRouter };

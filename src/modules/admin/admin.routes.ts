@@ -1,6 +1,11 @@
 import { Router } from 'express';
-import * as AdminController from './admin.controller';
 import { authenticate } from '../../middleware/auth.middleware';
+import {
+    getDashboard,
+    listUsers,
+    getAuditLogs,
+    setUserStatus,
+} from './admin.controller';
 
 const router = Router();
 
@@ -8,9 +13,9 @@ const router = Router();
 // TODO: add an isAdmin middleware once you add roles to the User model
 router.use(authenticate);
 
-router.get('/dashboard', AdminController.getDashboard);
-router.get('/users', AdminController.listUsers);
-router.patch('/users/:userId/status', AdminController.setUserStatus);
-router.get('/audit-logs', AdminController.getAuditLogs);
+router.get('/dashboard', getDashboard);
+router.get('/users', listUsers);
+router.patch('/users/:userId/status', setUserStatus);
+router.get('/audit-logs', getAuditLogs);
 
 export { router as adminRouter };
