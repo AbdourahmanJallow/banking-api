@@ -1,5 +1,5 @@
 import rateLimit from 'express-rate-limit';
-import { config } from 'src/config';
+import { config } from '../config';
 
 const limiter = rateLimit({
     windowMs: config.rateLimit.windowMs,
