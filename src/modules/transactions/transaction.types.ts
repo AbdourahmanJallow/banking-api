@@ -22,21 +22,21 @@ export const TransferSchema = z.object({
     fromAccountId: z.string().uuid(),
     toAccountId: z.string().uuid(),
     amount: z.number().positive('Amount must be positive'),
-    currency: z.string().length(3).toUpperCase(),
+    currency: z.string().length(3).toUpperCase().default('GMD'),
     idempotencyKey: z.string().min(1).max(255).optional(),
 });
 
 export const DepositSchema = z.object({
     accountId: z.string().uuid(),
     amount: z.number().positive(),
-    currency: z.string().length(3).toUpperCase(),
+    currency: z.string().length(3).toUpperCase().default('GMD'),
     idempotencyKey: z.string().min(1).max(255).optional(),
 });
 
 export const WithdrawalSchema = z.object({
     accountId: z.string().uuid(),
     amount: z.number().positive(),
-    currency: z.string().length(3).toUpperCase(),
+    currency: z.string().length(3).toUpperCase().default('GMD'),
     idempotencyKey: z.string().min(1).max(255).optional(),
 });
 

@@ -29,7 +29,7 @@ model Account {
   id            String   @id @default(uuid())
   userId        String
   accountNumber String   @unique
-  currency      String
+  currency      String   @default("GMD")
   balance       Float    @default(0)
   status        String   @default("ACTIVE")
   createdAt     DateTime @default(now())
@@ -44,7 +44,7 @@ model Transaction {
   reference String   @unique
   type      String
   amount    Float
-  currency  String
+  currency  String   @default("GMD")
   status    String
   createdAt DateTime @default(now())
 

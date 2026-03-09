@@ -4,7 +4,8 @@ export const CreateAccountSchema = z.object({
     currency: z
         .string()
         .length(3, 'Currency must be a 3-letter ISO code')
-        .toUpperCase(),
+        .toUpperCase()
+        .default('GMD'),
 });
 
 export const UpdateAccountStatusSchema = z.object({

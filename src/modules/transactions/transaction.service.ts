@@ -33,7 +33,7 @@ class TransactionService {
     // If any step throws, Postgres rolls back every write atomically.
 
     private async _transfer(input: TransferInput, requestingUserId: string) {
-        const { fromAccountId, toAccountId, amount, currency } = input;
+        const { fromAccountId, toAccountId, amount, currency = 'GMD' } = input;
 
         if (fromAccountId === toAccountId)
             throw AppError.badRequest('Cannot transfer to the same account');
@@ -93,7 +93,7 @@ class TransactionService {
     }
 
     private async _deposit(input: DepositInput, requestingUserId: string) {
-        const { accountId, amount, currency } = input;
+        const { accountId, amount, currency = 'GMD' } = input;
 
         return prisma.$transaction(async (tx) => {
             const account = await accountRepository.findById(accountId, tx);
@@ -138,7 +138,7 @@ class TransactionService {
         input: WithdrawalInput,
         requestingUserId: string,
     ) {
-        const { accountId, amount, currency } = input;
+        const { accountId, amount, currency = 'GMD' } = input;
 
         return prisma.$transaction(async (tx) => {
             const account = await accountRepository.findById(accountId, tx);

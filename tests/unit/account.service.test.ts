@@ -33,7 +33,7 @@ const mockAccount = {
     id: 'account-id-123',
     userId: 'user-id-123',
     accountNumber: 'ACC1234567890',
-    currency: 'USD',
+    currency: 'GMD',
     balance: 0,
     status: 'ACTIVE',
     createdAt: new Date(),
@@ -54,16 +54,16 @@ describe('accountService.createAccount', () => {
         );
 
         const result = await accountService.createAccount('user-id-123', {
-            currency: 'USD',
+            currency: 'GMD',
         });
 
         expect(generateAccountNumber).toHaveBeenCalledOnce();
         expect(accountRepository.create).toHaveBeenCalledWith(
             'user-id-123',
-            'USD',
+            'GMD',
             'ACC1234567890',
         );
-        expect(result.currency).toBe('USD');
+        expect(result.currency).toBe('GMD');
     });
 
     it('retries when generated account number already exists', async () => {
@@ -74,7 +74,7 @@ describe('accountService.createAccount', () => {
             mockAccount as any,
         );
 
-        await accountService.createAccount('user-id-123', { currency: 'USD' });
+        await accountService.createAccount('user-id-123', { currency: 'GMD' });
 
         expect(accountRepository.findByAccountNumber).toHaveBeenCalledTimes(2);
         expect(accountRepository.create).toHaveBeenCalledOnce();

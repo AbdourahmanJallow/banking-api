@@ -73,7 +73,7 @@ const mockAccount = {
     id: 'account-id-123',
     userId: 'user-id-123',
     accountNumber: 'ACC1234567890',
-    currency: 'USD',
+    currency: 'GMD',
     balance: 0,
     status: 'ACTIVE',
     createdAt: new Date(),
@@ -106,17 +106,17 @@ describe('POST /api/accounts', () => {
         const res = await request(app)
             .post('/api/v1/accounts')
             .set('Authorization', `Bearer ${token}`)
-            .send({ currency: 'USD' });
+            .send({ currency: 'GMD' });
 
         expect(res.status).toBe(201);
-        expect(res.body.data.currency).toBe('USD');
+        expect(res.body.data.currency).toBe('GMD');
         expect(res.body.data.accountNumber).toBe('ACC1234567890');
     });
 
     it('returns 401 without auth token', async () => {
         const res = await request(app)
             .post('/api/v1/accounts')
-            .send({ currency: 'USD' });
+            .send({ currency: 'GMD' });
 
         expect(res.status).toBe(401);
     });
