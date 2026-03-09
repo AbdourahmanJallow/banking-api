@@ -1,18 +1,26 @@
 import prisma from '../../lib/prisma';
+import type { PrismaTx } from '../../lib/prisma';
 
 class TransactionRepository {
-    create(data: {
-        reference: string;
-        type: string;
-        amount: number;
-        currency: string;
-        status: string;
-    }) {
-        return prisma.transaction.create({ data });
+    private client(tx?: PrismaTx) {
+        return tx ?? prisma;
     }
 
-    findById(id: string) {
-        return prisma.transaction.findUnique({
+    create(
+        data: {
+            reference: string;
+            type: string;
+            amount: number;
+            currency: string;
+            status: string;
+        },
+        tx?: PrismaTx,
+    ) {
+        return this.client(tx).transaction.create({ data });
+    }
+
+    findById(id: string, tx?: PrismaTx) {
+        return this.client(tx).transaction.findUnique({
             where: { id },
             include: { ledgerEntries: true },
         });
@@ -24,6 +32,7 @@ class TransactionRepository {
 
     async findByAccountId(accountId: string, page = 1, limit = 20) {
         const skip = (page - 1) * limit;
+
         const [transactions, total] = await prisma.$transaction([
             prisma.transaction.findMany({
                 where: { ledgerEntries: { some: { accountId } } },
@@ -36,11 +45,15 @@ class TransactionRepository {
                 where: { ledgerEntries: { some: { accountId } } },
             }),
         ]);
+
         return { transactions, total };
     }
 
-    updateStatus(id: string, status: string) {
-        return prisma.transaction.update({ where: { id }, data: { status } });
+    updateStatus(id: string, status: string, tx?: PrismaTx) {
+        return this.client(tx).transaction.update({
+            where: { id },
+            data: { status },
+        });
     }
 }
 

@@ -1,13 +1,21 @@
 import prisma from '../../lib/prisma';
+import type { PrismaTx } from '../../lib/prisma';
 
 class LedgerRepository {
-    createEntry(data: {
-        transactionId: string;
-        accountId: string;
-        entryType: string;
-        amount: number;
-    }) {
-        return prisma.ledgerEntry.create({ data });
+    private client(tx?: PrismaTx) {
+        return tx ?? prisma;
+    }
+
+    createEntry(
+        data: {
+            transactionId: string;
+            accountId: string;
+            entryType: string;
+            amount: number;
+        },
+        tx?: PrismaTx,
+    ) {
+        return this.client(tx).ledgerEntry.create({ data });
     }
 
     findByAccountId(accountId: string) {

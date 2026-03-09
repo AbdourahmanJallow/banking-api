@@ -2,6 +2,17 @@ import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../generated/prisma/client';
 
+/**
+ * Represents the transactional client passed inside a prisma.$transaction()
+ * callback. It mirrors the full PrismaClient API minus the connection/
+ * transaction-management methods — use this type when accepting a `tx`
+ * parameter in repositories and services.
+ */
+export type PrismaTx = Omit<
+    PrismaClient,
+    '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
+>;
+
 declare global {
     var __prisma: PrismaClient | undefined;
 }
