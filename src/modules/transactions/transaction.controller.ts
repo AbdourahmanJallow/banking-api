@@ -9,22 +9,45 @@ import { asyncHandler } from '../../utils/asyncHandler';
 import { sendCreated, sendSuccess, sendPaginated } from '../../utils/response';
 import { AppError } from '../../utils/AppError';
 
+/** Sets the replay header and chooses 200 vs 201 based on whether the
+ *  idempotency cache was hit. */
+function sendTransaction(
+    res: Response,
+    replayed: boolean,
+    data: unknown,
+    message: string,
+) {
+    if (replayed) {
+        res.setHeader('X-Idempotent-Replayed', 'true');
+        return sendSuccess(res, data, message);
+    }
+    return sendCreated(res, data, message);
+}
+
 export const transfer = asyncHandler(async (req: Request, res: Response) => {
     if (!req.user) throw AppError.unauthorized();
 
     const input = TransferSchema.parse(req.body);
 
-    const tx = await transactionService.transfer(input, req.user.userId);
+    const { data: tx, replayed } = await transactionService.transfer(
+        input,
+        req.user.userId,
+    );
 
-    sendCreated(res, tx, 'Transfer successful');
+    sendTransaction(res, replayed, tx, 'Transfer successful');
 });
 
 export const deposit = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) throw AppError.unauthorized();
+
     const input = DepositSchema.parse(req.body);
 
-    const tx = await transactionService.deposit(input);
+    const { data: tx, replayed } = await transactionService.deposit(
+        input,
+        req.user.userId,
+    );
 
-    sendCreated(res, tx, 'Deposit successful');
+    sendTransaction(res, replayed, tx, 'Deposit successful');
 });
 
 export const withdrawal = asyncHandler(async (req: Request, res: Response) => {
@@ -32,9 +55,12 @@ export const withdrawal = asyncHandler(async (req: Request, res: Response) => {
 
     const input = WithdrawalSchema.parse(req.body);
 
-    const tx = await transactionService.withdrawal(input, req.user.userId);
+    const { data: tx, replayed } = await transactionService.withdrawal(
+        input,
+        req.user.userId,
+    );
 
-    sendCreated(res, tx, 'Withdrawal successful');
+    sendTransaction(res, replayed, tx, 'Withdrawal successful');
 });
 
 export const getTransaction = asyncHandler(

@@ -59,6 +59,24 @@ class RedisService {
         }
     }
 
+    /**
+     * Atomically sets a key only if it does not already exist (SET NX EX).
+     * Returns true if the key was set, false if it already existed.
+     * Used for distributed locking.
+     */
+    async setNX(
+        key: string,
+        value: string,
+        ttlSeconds: number,
+    ): Promise<boolean> {
+        const client = this.ensureConnected();
+        const result = await client.set(key, value, {
+            NX: true,
+            EX: ttlSeconds,
+        });
+        return result === 'OK';
+    }
+
     async del(key: string): Promise<void> {
         await this.ensureConnected().del(key);
     }
