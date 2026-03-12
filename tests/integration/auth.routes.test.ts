@@ -13,6 +13,9 @@ vi.mock('../../src/lib/prisma', () => ({
             findUnique: vi.fn(),
             create: vi.fn(),
         },
+        auditLog: {
+            create: vi.fn().mockResolvedValue({}),
+        },
         $connect: vi.fn(),
         $queryRaw: vi.fn(),
         $disconnect: vi.fn(),

@@ -12,6 +12,7 @@ import {
     TransactionStatus,
 } from './transaction.types';
 import { AppError } from '../../utils/AppError';
+import { auditService } from '../audit/audit.service';
 
 /**
  * Isolation level used for every financial mutation.
@@ -198,11 +199,27 @@ class TransactionService {
             );
         }
 
-        return {
+        const result = {
             data: await this._transfer(input, requestingUserId),
             statusCode: 201,
             replayed: false,
         };
+
+        auditService.log({
+            userId: requestingUserId,
+            action: 'TRANSACTION.TRANSFER',
+            resource: 'TRANSACTION',
+            resourceId: result.data?.id ?? null,
+            metadata: {
+                fromAccountId: input.fromAccountId,
+                toAccountId: input.toAccountId,
+                amount: input.amount,
+                currency: input.currency ?? 'GMD',
+                reference: result.data?.reference,
+            },
+        });
+
+        return result;
     }
 
     async deposit(
@@ -222,11 +239,26 @@ class TransactionService {
             );
         }
 
-        return {
+        const result = {
             data: await this._deposit(input, requestingUserId),
             statusCode: 201,
             replayed: false,
         };
+
+        auditService.log({
+            userId: requestingUserId,
+            action: 'TRANSACTION.DEPOSIT',
+            resource: 'TRANSACTION',
+            resourceId: result.data?.id ?? null,
+            metadata: {
+                accountId: input.accountId,
+                amount: input.amount,
+                currency: input.currency ?? 'GMD',
+                reference: result.data?.reference,
+            },
+        });
+
+        return result;
     }
 
     async withdrawal(
@@ -248,11 +280,26 @@ class TransactionService {
             );
         }
 
-        return {
+        const result = {
             data: await this._withdrawal(input, requestingUserId),
             statusCode: 201,
             replayed: false,
         };
+
+        auditService.log({
+            userId: requestingUserId,
+            action: 'TRANSACTION.WITHDRAWAL',
+            resource: 'TRANSACTION',
+            resourceId: result.data?.id ?? null,
+            metadata: {
+                accountId: input.accountId,
+                amount: input.amount,
+                currency: input.currency ?? 'GMD',
+                reference: result.data?.reference,
+            },
+        });
+
+        return result;
     }
 
     async getTransaction(id: string, requestingUserId: string) {

@@ -1,4 +1,5 @@
 import prisma from '../../lib/prisma';
+import type { PrismaTx } from '../../lib/prisma';
 import { UpdateUserInput } from './user.types';
 
 class UserRepository {
@@ -39,8 +40,9 @@ class UserRepository {
         return prisma.user.update({ where: { id }, data: { passwordHash } });
     }
 
-    deactivate(id: string) {
-        return prisma.user.update({
+    deactivate(id: string, tx?: PrismaTx) {
+        const client = tx ?? prisma;
+        return client.user.update({
             where: { id },
             data: { status: 'INACTIVE' },
         });

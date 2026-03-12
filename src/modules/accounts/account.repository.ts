@@ -40,6 +40,13 @@ class AccountRepository {
             data: { balance },
         });
     }
+
+    updateAllByUserId(userId: string, status: string, tx?: PrismaTx) {
+        return this.client(tx).account.updateMany({
+            where: { userId },
+            data: { status },
+        });
+    }
 }
 
 export const accountRepository = new AccountRepository();

@@ -2,6 +2,7 @@ import { accountRepository } from './account.repository';
 import { CreateAccountInput, UpdateAccountStatusInput } from './account.types';
 import { generateAccountNumber } from '../../utils/generateAccountNumber';
 import { AppError } from '../../utils/AppError';
+import { auditService } from '../audit/audit.service';
 
 class AccountService {
     async createAccount(userId: string, input: CreateAccountInput) {
@@ -19,7 +20,24 @@ class AccountService {
             attempts++;
         } while (attempts < 3);
 
-        return accountRepository.create(userId, input.currency, accountNumber!);
+        const account = await accountRepository.create(
+            userId,
+            input.currency,
+            accountNumber!,
+        );
+
+        auditService.log({
+            userId,
+            action: 'ACCOUNT.CREATE',
+            resource: 'ACCOUNT',
+            resourceId: account.id,
+            metadata: {
+                accountNumber: account.accountNumber,
+                currency: account.currency,
+            },
+        });
+
+        return account;
     }
 
     async getAccount(accountId: string, requestingUserId: string) {
@@ -49,7 +67,23 @@ class AccountService {
         if (account.userId !== requestingUserId)
             throw AppError.forbidden('Access denied');
 
-        return accountRepository.updateStatus(accountId, input.status);
+        const updated = await accountRepository.updateStatus(
+            accountId,
+            input.status,
+        );
+
+        auditService.log({
+            userId: requestingUserId,
+            action: 'ACCOUNT.STATUS_UPDATE',
+            resource: 'ACCOUNT',
+            resourceId: accountId,
+            metadata: {
+                previousStatus: account.status,
+                newStatus: input.status,
+            },
+        });
+
+        return updated;
     }
 }
 

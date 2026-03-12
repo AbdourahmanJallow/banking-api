@@ -10,6 +10,7 @@ import {
     TokenPair,
     AuthResponse,
 } from './auth.types';
+import { auditService } from '../audit/audit.service';
 
 /** Converts a JWT expiry string like "7d", "15m", "1h" to seconds */
 export function parseTTL(exp: string): number {
@@ -61,6 +62,14 @@ class AuthService {
 
         const tokens = this.generateTokens(user.id, user.email);
 
+        auditService.log({
+            userId: user.id,
+            action: 'AUTH.REGISTER',
+            resource: 'USER',
+            resourceId: user.id,
+            metadata: { email: user.email, fullName: user.fullName },
+        });
+
         return {
             user: { id: user.id, email: user.email, fullName: user.fullName },
             tokens,
@@ -71,16 +80,38 @@ class AuthService {
         const user = await prisma.user.findUnique({
             where: { email: input.email },
         });
-        if (!user) throw AppError.unauthorized('Invalid email or password');
+        if (!user) {
+            auditService.log({
+                action: 'AUTH.LOGIN_FAILED',
+                resource: 'AUTH',
+                metadata: { email: input.email, reason: 'USER_NOT_FOUND' },
+            });
+            throw AppError.unauthorized('Invalid email or password');
+        }
 
         const valid = await bcrypt.compare(input.password, user.passwordHash);
-        if (!valid) throw AppError.unauthorized('Invalid email or password');
+        if (!valid) {
+            auditService.log({
+                userId: user.id,
+                action: 'AUTH.LOGIN_FAILED',
+                resource: 'AUTH',
+                metadata: { email: input.email, reason: 'WRONG_PASSWORD' },
+            });
+            throw AppError.unauthorized('Invalid email or password');
+        }
 
-        if (user.status !== 'ACTIVE')
+        if (user.status !== 'ACTIVE') {
+            auditService.log({
+                userId: user.id,
+                action: 'AUTH.LOGIN_FAILED',
+                resource: 'AUTH',
+                metadata: { email: input.email, reason: 'ACCOUNT_SUSPENDED' },
+            });
             throw AppError.forbidden(
                 'Account is suspended',
                 'ACCOUNT_SUSPENDED',
             );
+        }
 
         const tokens = this.generateTokens(user.id, user.email);
 
@@ -91,6 +122,13 @@ class AuthService {
                 parseTTL(config.jwt.refreshExpiresIn),
             );
         }
+
+        auditService.log({
+            userId: user.id,
+            action: 'AUTH.LOGIN',
+            resource: 'AUTH',
+            metadata: { email: user.email },
+        });
 
         return {
             user: { id: user.id, email: user.email, fullName: user.fullName },
@@ -157,6 +195,12 @@ class AuthService {
         } catch (err) {
             console.warn('[Auth] logout Redis error (non-fatal):', err);
         }
+
+        auditService.log({
+            userId,
+            action: 'AUTH.LOGOUT',
+            resource: 'AUTH',
+        });
     }
 }
 

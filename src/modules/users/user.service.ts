@@ -1,7 +1,10 @@
 import bcrypt from 'bcrypt';
+import prisma from '../../lib/prisma';
 import { userRepository } from './user.repository';
+import { accountRepository } from '../accounts/account.repository';
 import { UpdateUserInput, ChangePasswordInput, UserPublic } from './user.types';
 import { AppError } from '../../utils/AppError';
+import { auditService } from '../audit/audit.service';
 
 class UserService {
     private readonly SALT_ROUNDS = 12;
@@ -23,6 +26,14 @@ class UserService {
         const user = await userRepository.update(userId, input);
 
         const { passwordHash: _, ...profile } = user;
+
+        auditService.log({
+            userId,
+            action: 'USER.PROFILE_UPDATE',
+            resource: 'USER',
+            resourceId: userId,
+            metadata: { updatedFields: Object.keys(input) },
+        });
 
         return profile;
     }
@@ -49,6 +60,13 @@ class UserService {
         const hash = await bcrypt.hash(input.newPassword, this.SALT_ROUNDS);
 
         await userRepository.updatePassword(userId, hash);
+
+        auditService.log({
+            userId,
+            action: 'USER.PASSWORD_CHANGE',
+            resource: 'USER',
+            resourceId: userId,
+        });
     }
 
     async listUsers(page: number, limit: number) {
@@ -60,7 +78,18 @@ class UserService {
 
         if (!user) throw AppError.notFound('User not found');
 
-        await userRepository.deactivate(userId);
+        // Atomically deactivate the user and freeze all their accounts so
+        // no account remains ACTIVE while the owning user is INACTIVE.
+        await prisma.$transaction(async (tx) => {
+            await userRepository.deactivate(userId, tx);
+            await accountRepository.updateAllByUserId(userId, 'INACTIVE', tx);
+        });
+
+        auditService.log({
+            action: 'USER.DEACTIVATE',
+            resource: 'USER',
+            resourceId: userId,
+        });
     }
 }
 

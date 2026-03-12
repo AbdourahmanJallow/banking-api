@@ -17,6 +17,10 @@ vi.mock('../../src/modules/accounts/account.repository', () => ({
     },
 }));
 
+vi.mock('../../src/modules/audit/audit.service', () => ({
+    auditService: { log: vi.fn() },
+}));
+
 vi.mock('../../src/utils/generateAccountNumber', () => ({
     generateAccountNumber: vi.fn().mockReturnValue('ACC1234567890'),
 }));

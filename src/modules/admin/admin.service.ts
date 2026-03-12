@@ -1,4 +1,5 @@
 import prisma from '../../lib/prisma';
+import { accountRepository } from '../accounts/account.repository';
 import { AppError } from '../../utils/AppError';
 
 class AdminService {
@@ -43,31 +44,22 @@ class AdminService {
 
         if (!user) throw AppError.notFound('User not found');
 
-        return prisma.user.update({ where: { id: userId }, data: { status } });
-    }
+        // If the user is being suspended or deactivated, atomically apply the
+        // same status to all their accounts so no account stays ACTIVE while
+        // the owning user is restricted.
+        const inactiveStatuses = ['INACTIVE', 'SUSPENDED'];
 
-    async getAuditLogs(page = 1, limit = 50) {
-        const skip = (page - 1) * limit;
+        return prisma.$transaction(async (tx) => {
+            const updated = await tx.user.update({
+                where: { id: userId },
+                data: { status },
+            });
 
-        const [logs, total] = await prisma.$transaction([
-            prisma.auditLog.findMany({
-                skip,
-                take: limit,
-                orderBy: { createdAt: 'desc' },
-            }),
-            prisma.auditLog.count(),
-        ]);
+            if (inactiveStatuses.includes(status)) {
+                await accountRepository.updateAllByUserId(userId, status, tx);
+            }
 
-        return { logs, total };
-    }
-
-    async createAuditLog(
-        userId: string | null,
-        action: string,
-        ipAddress?: string,
-    ) {
-        return prisma.auditLog.create({
-            data: { userId, action, ipAddress },
+            return updated;
         });
     }
 }
