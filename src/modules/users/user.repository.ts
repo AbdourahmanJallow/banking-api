@@ -13,6 +13,7 @@ class UserRepository {
 
     async findAll(page = 1, limit = 20) {
         const skip = (page - 1) * limit;
+
         const [users, total] = await prisma.$transaction([
             prisma.user.findMany({
                 skip,
@@ -29,6 +30,7 @@ class UserRepository {
             }),
             prisma.user.count(),
         ]);
+
         return { users, total };
     }
 

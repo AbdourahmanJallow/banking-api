@@ -6,8 +6,13 @@ class AccountRepository {
         return tx ?? prisma;
     }
 
-    create(userId: string, currency: string, accountNumber: string) {
-        return prisma.account.create({
+    create(
+        userId: string,
+        currency: string,
+        accountNumber: string,
+        tx?: PrismaTx,
+    ) {
+        return this.client(tx).account.create({
             data: { userId, currency, accountNumber },
         });
     }
@@ -16,15 +21,15 @@ class AccountRepository {
         return this.client(tx).account.findUnique({ where: { id } });
     }
 
-    findByUserId(userId: string) {
-        return prisma.account.findMany({
+    findByUserId(userId: string, tx?: PrismaTx) {
+        return this.client(tx).account.findMany({
             where: { userId },
             orderBy: { createdAt: 'desc' },
         });
     }
 
-    findByAccountNumber(accountNumber: string) {
-        return prisma.account.findUnique({ where: { accountNumber } });
+    findByAccountNumber(accountNumber: string, tx?: PrismaTx) {
+        return this.client(tx).account.findUnique({ where: { accountNumber } });
     }
 
     updateStatus(id: string, status: string, tx?: PrismaTx) {
@@ -46,6 +51,14 @@ class AccountRepository {
             where: { userId },
             data: { status },
         });
+    }
+
+    deleteById(id: string, tx?: PrismaTx) {
+        return this.client(tx).account.delete({ where: { id } });
+    }
+
+    deleteByUserId(userId: string, tx?: PrismaTx) {
+        return this.client(tx).account.deleteMany({ where: { userId } });
     }
 }
 

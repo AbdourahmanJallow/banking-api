@@ -7,26 +7,60 @@ import request from 'supertest';
 
 // ── Mocks (must come before imports that use them) ────────────────────────────
 
-vi.mock('../../src/lib/prisma', () => ({
-    default: {
+vi.mock('../../src/lib/prisma', () => {
+    // Create shared mock instances
+    const userFindUnique = vi.fn();
+    const userCreate = vi.fn();
+    const userUpdate = vi.fn();
+    const accountFindUnique = vi.fn();
+    const accountFindMany = vi.fn();
+    const accountCreate = vi.fn();
+    const accountUpdate = vi.fn();
+    const accountDeleteMany = vi.fn();
+    const ledgerEntryDeleteMany = vi.fn();
+
+    const mockTx = {
         user: {
-            findUnique: vi.fn(),
-            create: vi.fn(),
+            findUnique: userFindUnique,
+            create: userCreate,
+            update: userUpdate,
         },
         account: {
-            findUnique: vi.fn(),
-            findMany: vi.fn(),
-            create: vi.fn(),
-            update: vi.fn(),
+            findUnique: accountFindUnique,
+            findMany: accountFindMany,
+            create: accountCreate,
+            update: accountUpdate,
+            deleteMany: accountDeleteMany,
         },
-        auditLog: {
-            create: vi.fn().mockResolvedValue({}),
+        ledgerEntry: {
+            deleteMany: ledgerEntryDeleteMany,
         },
-        $connect: vi.fn(),
-        $queryRaw: vi.fn(),
-        $disconnect: vi.fn(),
-    },
-}));
+    };
+
+    return {
+        default: {
+            user: {
+                findUnique: userFindUnique,
+                create: userCreate,
+            },
+            account: {
+                findUnique: accountFindUnique,
+                findMany: accountFindMany,
+                create: accountCreate,
+                update: accountUpdate,
+            },
+            auditLog: {
+                create: vi.fn().mockResolvedValue({}),
+            },
+            $transaction: vi.fn((callback: (tx: any) => Promise<any>) =>
+                callback(mockTx),
+            ),
+            $connect: vi.fn(),
+            $queryRaw: vi.fn(),
+            $disconnect: vi.fn(),
+        },
+    };
+});
 
 vi.mock('../../src/config/redis', () => ({
     redisService: {
@@ -103,6 +137,7 @@ describe('POST /api/accounts', () => {
 
     it('returns 201 with new account on success', async () => {
         const token = await getAccessToken();
+        vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser as any); // needed for transaction
         vi.mocked(prisma.account.findUnique).mockResolvedValue(null); // no collision
         vi.mocked(prisma.account.create).mockResolvedValue(mockAccount as any);
 

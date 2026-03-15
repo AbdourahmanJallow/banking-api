@@ -6,6 +6,30 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
+vi.mock('../../src/lib/prisma', () => ({
+    default: {
+        $transaction: vi
+            .fn()
+            .mockImplementation((callback: (tx: any) => Promise<any>) =>
+                Promise.resolve(
+                    callback({
+                        user: {
+                            findUnique: vi.fn().mockResolvedValue(null),
+                        },
+                        account: {
+                            findUnique: vi.fn().mockResolvedValue(null),
+                            update: vi.fn().mockResolvedValue(null),
+                            deleteMany: vi.fn().mockResolvedValue(null),
+                        },
+                        ledgerEntry: {
+                            deleteMany: vi.fn().mockResolvedValue(null),
+                        },
+                    }),
+                ).then((p) => p),
+            ),
+    },
+}));
+
 vi.mock('../../src/modules/accounts/account.repository', () => ({
     accountRepository: {
         create: vi.fn(),
@@ -14,6 +38,8 @@ vi.mock('../../src/modules/accounts/account.repository', () => ({
         findByAccountNumber: vi.fn(),
         updateStatus: vi.fn(),
         updateBalance: vi.fn(),
+        deleteById: vi.fn(),
+        deleteByUserId: vi.fn(),
     },
 }));
 
@@ -27,6 +53,7 @@ vi.mock('../../src/utils/generateAccountNumber', () => ({
 
 // ── Imports (after mocks) ─────────────────────────────────────────────────────
 
+import prisma from '../../src/lib/prisma';
 import { accountRepository } from '../../src/modules/accounts/account.repository';
 import { generateAccountNumber } from '../../src/utils/generateAccountNumber';
 import { accountService } from '../../src/modules/accounts/account.service';
@@ -50,6 +77,20 @@ describe('accountService.createAccount', () => {
     beforeEach(() => vi.clearAllMocks());
 
     it('creates an account with a generated account number', async () => {
+        const mockUser = { id: 'user-id-123', status: 'ACTIVE' };
+        vi.mocked(prisma.$transaction).mockImplementation(
+            async (callback: (tx: any) => Promise<any>) => {
+                const mockTx = {
+                    user: {
+                        findUnique: vi.fn().mockResolvedValue(mockUser),
+                    },
+                    account: {
+                        create: vi.fn().mockResolvedValue(mockAccount),
+                    },
+                };
+                return callback(mockTx);
+            },
+        );
         vi.mocked(accountRepository.findByAccountNumber).mockResolvedValue(
             null,
         );
@@ -66,11 +107,26 @@ describe('accountService.createAccount', () => {
             'user-id-123',
             'GMD',
             'ACC1234567890',
+            expect.anything(), // tx parameter
         );
         expect(result.currency).toBe('GMD');
     });
 
     it('retries when generated account number already exists', async () => {
+        const mockUser = { id: 'user-id-123', status: 'ACTIVE' };
+        vi.mocked(prisma.$transaction).mockImplementation(
+            async (callback: (tx: any) => Promise<any>) => {
+                const mockTx = {
+                    user: {
+                        findUnique: vi.fn().mockResolvedValue(mockUser),
+                    },
+                    account: {
+                        create: vi.fn().mockResolvedValue(mockAccount),
+                    },
+                };
+                return callback(mockTx);
+            },
+        );
         vi.mocked(accountRepository.findByAccountNumber)
             .mockResolvedValueOnce(mockAccount as any) // first number taken
             .mockResolvedValueOnce(null); // second is free
@@ -162,6 +218,16 @@ describe('accountService.updateAccountStatus', () => {
         vi.mocked(accountRepository.updateStatus).mockResolvedValue(
             updated as any,
         );
+        vi.mocked(prisma.$transaction).mockImplementation(
+            async (callback: (tx: any) => Promise<any>) => {
+                const mockTx = {
+                    account: {
+                        update: vi.fn().mockResolvedValue(updated),
+                    },
+                };
+                return callback(mockTx);
+            },
+        );
 
         const result = await accountService.updateAccountStatus(
             'account-id-123',
@@ -172,6 +238,7 @@ describe('accountService.updateAccountStatus', () => {
         expect(accountRepository.updateStatus).toHaveBeenCalledWith(
             'account-id-123',
             'FROZEN',
+            expect.anything(), // tx parameter
         );
         expect(result.status).toBe('FROZEN');
     });
