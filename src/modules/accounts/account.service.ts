@@ -1,15 +1,16 @@
 import prisma from '../../lib/prisma';
-import { accountRepository } from './account.repository';
-import { CreateAccountInput, UpdateAccountStatusInput } from './account.types';
 import {
+    accountRepository,
     beneficiaryRepository,
     standingOrderRepository,
     accountPreferencesRepository,
     transactionLimitsRepository,
     alertRepository,
     statementRepository,
-} from './account-features.repository';
+} from './account.repository';
 import {
+    CreateAccountInput,
+    UpdateAccountStatusInput,
     type CreateBeneficiaryInput,
     type CreateStandingOrderInput,
     type AccountPreferences,
@@ -18,7 +19,7 @@ import {
     type SpendingByCategory,
     type SpendingTrend,
     type TopMerchant,
-} from './account-features.types';
+} from './account.types';
 import { generateAccountNumber } from '../../utils/generateAccountNumber';
 import { AppError } from '../../utils/AppError';
 import { auditService } from '../audit/audit.service';
@@ -42,7 +43,6 @@ class AccountService {
         // Wrap in transaction: check user exists + create account atomically
         // This ensures a deleted user cannot have orphaned accounts.
         const account = await prisma.$transaction(async (tx) => {
-            // Verify user exists within the transaction
             const user = await tx.user.findUnique({ where: { id: userId } });
             if (!user) throw AppError.notFound('User not found');
 
@@ -221,15 +221,15 @@ class AccountService {
         });
     }
 
-    // ── Beneficiary Management ──────────────────────────────────────────
-
     async addBeneficiary(
         accountId: string,
         input: CreateBeneficiaryInput,
         requestingUserId: string,
     ) {
         const account = await accountRepository.findById(accountId);
+
         if (!account) throw AppError.notFound('Account not found');
+
         if (account.userId !== requestingUserId)
             throw AppError.forbidden('Access denied');
 
@@ -260,6 +260,7 @@ class AccountService {
 
     async removeBeneficiary(beneficiaryId: string, requestingUserId: string) {
         const beneficiary = await beneficiaryRepository.findById(beneficiaryId);
+
         if (!beneficiary) throw AppError.notFound('Beneficiary not found');
 
         const account = await accountRepository.findById(beneficiary.accountId);
@@ -280,14 +281,14 @@ class AccountService {
 
     async listBeneficiaries(accountId: string, requestingUserId: string) {
         const account = await accountRepository.findById(accountId);
+
         if (!account) throw AppError.notFound('Account not found');
+
         if (account.userId !== requestingUserId)
             throw AppError.forbidden('Access denied');
 
         return beneficiaryRepository.findByAccountId(accountId);
     }
-
-    // ── Standing Orders / Recurring Payments ────────────────────────────
 
     async createStandingOrder(
         fromAccountId: string,
@@ -295,7 +296,9 @@ class AccountService {
         requestingUserId: string,
     ) {
         const fromAccount = await accountRepository.findById(fromAccountId);
+
         if (!fromAccount) throw AppError.notFound('Source account not found');
+
         if (fromAccount.userId !== requestingUserId)
             throw AppError.forbidden('Access denied');
 
@@ -331,9 +334,11 @@ class AccountService {
 
     async pauseStandingOrder(orderId: string, requestingUserId: string) {
         const order = await standingOrderRepository.findById(orderId);
+
         if (!order) throw AppError.notFound('Standing order not found');
 
         const account = await accountRepository.findById(order.fromAccountId);
+
         if (account?.userId !== requestingUserId)
             throw AppError.forbidden('Access denied');
 
@@ -351,6 +356,7 @@ class AccountService {
 
     async resumeStandingOrder(orderId: string, requestingUserId: string) {
         const order = await standingOrderRepository.findById(orderId);
+
         if (!order) throw AppError.notFound('Standing order not found');
 
         const account = await accountRepository.findById(order.fromAccountId);
@@ -371,14 +377,14 @@ class AccountService {
 
     async listStandingOrders(accountId: string, requestingUserId: string) {
         const account = await accountRepository.findById(accountId);
+
         if (!account) throw AppError.notFound('Account not found');
+
         if (account.userId !== requestingUserId)
             throw AppError.forbidden('Access denied');
 
         return standingOrderRepository.findByAccountId(accountId);
     }
-
-    // ── Account Preferences ─────────────────────────────────────────────
 
     async updatePreferences(
         accountId: string,
@@ -386,7 +392,9 @@ class AccountService {
         requestingUserId: string,
     ) {
         const account = await accountRepository.findById(accountId);
+
         if (!account) throw AppError.notFound('Account not found');
+
         if (account.userId !== requestingUserId)
             throw AppError.forbidden('Access denied');
 
@@ -411,14 +419,14 @@ class AccountService {
 
     async getPreferences(accountId: string, requestingUserId: string) {
         const account = await accountRepository.findById(accountId);
+
         if (!account) throw AppError.notFound('Account not found');
+
         if (account.userId !== requestingUserId)
             throw AppError.forbidden('Access denied');
 
         return accountPreferencesRepository.findByAccountId(accountId);
     }
-
-    // ── Transaction Limits ──────────────────────────────────────────────
 
     async setTransactionLimits(
         accountId: string,
@@ -426,7 +434,9 @@ class AccountService {
         requestingUserId: string,
     ) {
         const account = await accountRepository.findById(accountId);
+
         if (!account) throw AppError.notFound('Account not found');
+
         if (account.userId !== requestingUserId)
             throw AppError.forbidden('Access denied');
 
@@ -447,7 +457,9 @@ class AccountService {
 
     async getTransactionLimits(accountId: string, requestingUserId: string) {
         const account = await accountRepository.findById(accountId);
+
         if (!account) throw AppError.notFound('Account not found');
+
         if (account.userId !== requestingUserId)
             throw AppError.forbidden('Access denied');
 
@@ -476,15 +488,15 @@ class AccountService {
         return { valid: true };
     }
 
-    // ── Alerts ──────────────────────────────────────────────────────────
-
     async createAlert(
         accountId: string,
         alert: CreateAlertInput,
         requestingUserId: string,
     ) {
         const account = await accountRepository.findById(accountId);
+
         if (!account) throw AppError.notFound('Account not found');
+
         if (account.userId !== requestingUserId)
             throw AppError.forbidden('Access denied');
 
@@ -505,9 +517,11 @@ class AccountService {
 
     async disableAlert(alertId: string, requestingUserId: string) {
         const alert = await alertRepository.findById(alertId);
+
         if (!alert) throw AppError.notFound('Alert not found');
 
         const account = await accountRepository.findById(alert.accountId);
+
         if (account?.userId !== requestingUserId)
             throw AppError.forbidden('Access denied');
 
@@ -532,8 +546,6 @@ class AccountService {
         return alertRepository.findByAccountId(accountId);
     }
 
-    // ── Statements ──────────────────────────────────────────────────────
-
     async generateStatement(
         accountId: string,
         startDate: Date,
@@ -541,7 +553,9 @@ class AccountService {
         requestingUserId: string,
     ) {
         const account = await accountRepository.findById(accountId);
+
         if (!account) throw AppError.notFound('Account not found');
+
         if (account.userId !== requestingUserId)
             throw AppError.forbidden('Access denied');
 
@@ -606,7 +620,9 @@ class AccountService {
         limit = 10,
     ) {
         const account = await accountRepository.findById(accountId);
+
         if (!account) throw AppError.notFound('Account not found');
+
         if (account.userId !== requestingUserId)
             throw AppError.forbidden('Access denied');
 
@@ -619,8 +635,6 @@ class AccountService {
         return { statements, total, page, limit };
     }
 
-    // ── Spending Analytics ──────────────────────────────────────────────
-
     async getSpendingByCategory(
         accountId: string,
         requestingUserId: string,
@@ -628,7 +642,9 @@ class AccountService {
         endDate: Date,
     ): Promise<SpendingByCategory[]> {
         const account = await accountRepository.findById(accountId);
+
         if (!account) throw AppError.notFound('Account not found');
+
         if (account.userId !== requestingUserId)
             throw AppError.forbidden('Access denied');
 
@@ -680,7 +696,9 @@ class AccountService {
         months = 12,
     ): Promise<SpendingTrend[]> {
         const account = await accountRepository.findById(accountId);
+
         if (!account) throw AppError.notFound('Account not found');
+
         if (account.userId !== requestingUserId)
             throw AppError.forbidden('Access denied');
 
@@ -728,7 +746,9 @@ class AccountService {
         limit = 5,
     ): Promise<TopMerchant[]> {
         const account = await accountRepository.findById(accountId);
+
         if (!account) throw AppError.notFound('Account not found');
+
         if (account.userId !== requestingUserId)
             throw AppError.forbidden('Access denied');
 

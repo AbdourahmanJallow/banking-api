@@ -3,14 +3,12 @@ import { accountService } from './account.service';
 import {
     CreateAccountSchema,
     UpdateAccountStatusSchema,
-} from './account.types';
-import {
     CreateBeneficiarySchema,
     CreateStandingOrderSchema,
     AccountPreferencesSchema,
     TransactionLimitsSchema,
     CreateAlertSchema,
-} from './account-features.types';
+} from './account.types';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { sendSuccess, sendCreated } from '../../utils/response';
 import { AppError } from '../../utils/AppError';
