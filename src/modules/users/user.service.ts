@@ -1,22 +1,60 @@
 import bcrypt from 'bcrypt';
+import { randomBytes } from 'crypto';
+import speakeasy from 'speakeasy';
+import QRCode from 'qrcode';
 import prisma from '../../lib/prisma';
 import { userRepository } from './user.repository';
 import { accountRepository } from '../accounts/account.repository';
-import { UpdateUserInput, ChangePasswordInput, UserPublic } from './user.types';
+import {
+    UpdateUserInput,
+    ChangePasswordInput,
+    UserPublic,
+    VerifyEmailInput,
+    InitiatePasswordResetInput,
+    ResetPasswordInput,
+    EnableTOTPInput,
+    ConfirmTOTPInput,
+    ValidateTOTPInput,
+    DisableTOTPInput,
+    TOTPSetupResponse,
+    SubmitKYCInput,
+} from './user.types';
 import { AppError } from '../../utils/AppError';
 import { auditService } from '../audit/audit.service';
 
 class UserService {
     private readonly SALT_ROUNDS = 12;
+    private readonly TOKEN_LENGTH = 32; // bytes for random tokens
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // HELPERS
+    // ───────────────────────────────────────────────────────────────────────────
+
+    private generateToken(): string {
+        return randomBytes(this.TOKEN_LENGTH).toString('hex');
+    }
+
+    private generateBackupCodes(count = 10): string[] {
+        return Array.from({ length: count }, () =>
+            randomBytes(4).toString('hex').toUpperCase(),
+        );
+    }
+
+    private sanitizeUser(user: any): UserPublic {
+        const { passwordHash: _, ...profile } = user;
+        return profile;
+    }
+
+    // ───────────────────────────────────────────────────────────────────────────
+    // CORE USER MANAGEMENT
+    // ───────────────────────────────────────────────────────────────────────────
 
     async getProfile(userId: string): Promise<UserPublic> {
         const user = await userRepository.findById(userId);
 
         if (!user) throw AppError.notFound('User not found');
 
-        const { passwordHash: _, ...profile } = user;
-
-        return profile;
+        return this.sanitizeUser(user);
     }
 
     async updateProfile(
@@ -24,8 +62,6 @@ class UserService {
         input: UpdateUserInput,
     ): Promise<UserPublic> {
         const user = await userRepository.update(userId, input);
-
-        const { passwordHash: _, ...profile } = user;
 
         auditService.log({
             userId,
@@ -35,7 +71,7 @@ class UserService {
             metadata: { updatedFields: Object.keys(input) },
         });
 
-        return profile;
+        return this.sanitizeUser(user);
     }
 
     async changePassword(
@@ -78,8 +114,6 @@ class UserService {
 
         if (!user) throw AppError.notFound('User not found');
 
-        // Atomically deactivate the user and freeze all their accounts so
-        // no account remains ACTIVE while the owning user is INACTIVE.
         await prisma.$transaction(async (tx) => {
             await userRepository.deactivate(userId, tx);
             await accountRepository.updateAllByUserId(userId, 'INACTIVE', tx);
@@ -90,6 +124,363 @@ class UserService {
             resource: 'USER',
             resourceId: userId,
         });
+    }
+
+    async sendVerificationEmail(userId: string): Promise<void> {
+        const user = await userRepository.findById(userId);
+
+        if (!user) throw AppError.notFound('User not found');
+
+        if (user.emailVerified) {
+            throw AppError.badRequest('Email already verified');
+        }
+
+        const token = this.generateToken();
+
+        await userRepository.setEmailVerificationToken(userId, token);
+
+        // TODO: Send verification email with token
+        // await notificationService.sendVerificationEmail(user.email, token);
+
+        auditService.log({
+            userId,
+            action: 'USER.VERIFY_EMAIL_SENT',
+            resource: 'USER',
+            resourceId: userId,
+        });
+    }
+
+    async verifyEmail(input: VerifyEmailInput): Promise<UserPublic> {
+        const user = await userRepository.findByEmailVerificationToken(
+            input.token,
+        );
+
+        if (!user) throw AppError.badRequest('Invalid or expired token');
+
+        if (
+            user.emailVerificationExpiry &&
+            user.emailVerificationExpiry < new Date()
+        ) {
+            throw AppError.badRequest('Token has expired');
+        }
+
+        const verified = await userRepository.verifyEmail(user.id);
+
+        auditService.log({
+            userId: user.id,
+            action: 'USER.EMAIL_VERIFIED',
+            resource: 'USER',
+            resourceId: user.id,
+        });
+
+        return this.sanitizeUser(verified);
+    }
+
+    async initiatePasswordReset(
+        input: InitiatePasswordResetInput,
+    ): Promise<void> {
+        const user = await userRepository.findByEmail(input.email);
+
+        if (!user) {
+            // Don't reveal if email exists
+            auditService.log({
+                action: 'USER.PASSWORD_RESET_ATTEMPTED',
+                resource: 'USER',
+                metadata: { email: input.email, reason: 'USER_NOT_FOUND' },
+            });
+            return;
+        }
+
+        const token = this.generateToken();
+
+        await userRepository.setPasswordResetToken(user.id, token);
+
+        // TODO: Send password reset email with token
+        // await notificationService.sendPasswordResetEmail(user.email, token);
+
+        auditService.log({
+            userId: user.id,
+            action: 'USER.PASSWORD_RESET_INITIATED',
+            resource: 'USER',
+            resourceId: user.id,
+        });
+    }
+
+    async resetPassword(input: ResetPasswordInput): Promise<void> {
+        const user = await userRepository.findByPasswordResetToken(input.token);
+
+        if (!user) throw AppError.badRequest('Invalid or expired token');
+
+        if (user.passwordResetExpiry && user.passwordResetExpiry < new Date()) {
+            throw AppError.badRequest('Reset token has expired');
+        }
+
+        const hash = await bcrypt.hash(input.newPassword, this.SALT_ROUNDS);
+
+        await userRepository.updatePassword(user.id, hash);
+
+        auditService.log({
+            userId: user.id,
+            action: 'USER.PASSWORD_RESET',
+            resource: 'USER',
+            resourceId: user.id,
+        });
+    }
+
+    async enableTOTP(
+        userId: string,
+        input: EnableTOTPInput,
+    ): Promise<TOTPSetupResponse> {
+        const user = await userRepository.findById(userId);
+
+        if (!user) throw AppError.notFound('User not found');
+
+        const valid = await bcrypt.compare(input.password, user.passwordHash);
+
+        if (!valid) {
+            throw AppError.badRequest('Password is incorrect');
+        }
+
+        if (user.totpEnabled) {
+            throw AppError.badRequest('2FA is already enabled');
+        }
+
+        // NOTE: Requires speakeasy package - npm install speakeasy
+        // const secret = speakeasy.generateSecret({
+        //     name: `Banking API (${user.email})`,
+        //     issuer: 'Banking API',
+        //     length: 32,
+        // });
+
+        // const qrCode = await QRCode.toDataURL(secret.otpauth_url!);
+        // const backupCodes = this.generateBackupCodes();
+
+        // // Encrypt before storing (implement encryption based on your needs)
+        // await userRepository.setTOTPSecret(userId, secret.base32);
+
+        throw AppError.internal(
+            'Speakeasy package not installed. Run: npm install speakeasy qrcode',
+        );
+    }
+
+    async confirmTOTP(userId: string, input: ConfirmTOTPInput): Promise<void> {
+        const user = await userRepository.findById(userId);
+
+        if (!user) throw AppError.notFound('User not found');
+
+        if (!user.totpSecret) {
+            throw AppError.badRequest('TOTP setup not initiated');
+        }
+
+        if (user.totpEnabled) {
+            throw AppError.badRequest('2FA is already enabled');
+        }
+
+        // NOTE: Requires speakeasy package - npm install speakeasy
+        // const verified = speakeasy.totp.verify({
+        //     secret: input.secret,
+        //     encoding: 'base32',
+        //     token: input.token,
+        //     window: 2,
+        // });
+
+        // if (!verified) {
+        //     throw AppError.badRequest('Invalid token');
+        // }
+
+        await userRepository.enableTOTP(userId);
+
+        auditService.log({
+            userId,
+            action: 'USER.2FA_ENABLED',
+            resource: 'USER',
+            resourceId: userId,
+        });
+
+        throw AppError.internal(
+            'Speakeasy package not installed. Run: npm install speakeasy qrcode',
+        );
+    }
+
+    async validateTOTP(
+        userId: string,
+        input: ValidateTOTPInput,
+    ): Promise<boolean> {
+        const user = await userRepository.findById(userId);
+
+        if (!user) throw AppError.notFound('User not found');
+
+        if (!user.totpEnabled || !user.totpSecret) {
+            throw AppError.badRequest('2FA is not enabled');
+        }
+
+        // NOTE: Requires speakeasy package - npm install speakeasy
+        // const verified = speakeasy.totp.verify({
+        //     secret: user.totpSecret,
+        //     encoding: 'base32',
+        //     token: input.token,
+        //     window: 2,
+        // });
+
+        // return verified;
+
+        throw AppError.internal(
+            'Speakeasy package not installed. Run: npm install speakeasy qrcode',
+        );
+    }
+
+    async disableTOTP(userId: string, input: DisableTOTPInput): Promise<void> {
+        const user = await userRepository.findById(userId);
+
+        if (!user) throw AppError.notFound('User not found');
+
+        const valid = await bcrypt.compare(input.password, user.passwordHash);
+
+        if (!valid) {
+            throw AppError.badRequest('Password is incorrect');
+        }
+
+        if (!user.totpEnabled) {
+            throw AppError.badRequest('2FA is not enabled');
+        }
+
+        await userRepository.disableTOTP(userId);
+
+        auditService.log({
+            userId,
+            action: 'USER.2FA_DISABLED',
+            resource: 'USER',
+            resourceId: userId,
+        });
+    }
+
+    async checkAccountLock(userId: string): Promise<void> {
+        const user = await userRepository.findById(userId);
+
+        if (!user) return;
+
+        if (!user.lockedUntil) return;
+
+        if (user.lockedUntil > new Date()) {
+            throw AppError.forbidden(
+                'Account is locked. Please try again later.',
+                'ACCOUNT_LOCKED',
+            );
+        }
+
+        // Unlock if lock duration has passed
+        await userRepository.unlockAccount(userId);
+    }
+
+    async recordFailedLogin(userId: string): Promise<void> {
+        let user = await userRepository.findById(userId);
+
+        if (!user) return;
+
+        user = await userRepository.incrementFailedAttempts(userId);
+
+        // Lock account after 5 failed attempts
+        if (user.failedLoginAttempts >= 5) {
+            await userRepository.lockAccount(userId, 30);
+
+            auditService.log({
+                userId,
+                action: 'USER.ACCOUNT_LOCKED',
+                resource: 'USER',
+                resourceId: userId,
+                metadata: { reason: 'FAILED_LOGIN_ATTEMPTS' },
+            });
+
+            // TODO: Send account locked notification email
+            // await notificationService.sendAccountLockedEmail(user.email);
+        }
+    }
+
+    async recordSuccessfulLogin(userId: string): Promise<void> {
+        await userRepository.unlockAccount(userId);
+    }
+
+    async submitKYC(
+        userId: string,
+        input: SubmitKYCInput,
+    ): Promise<UserPublic> {
+        const user = await userRepository.findById(userId);
+
+        if (!user) throw AppError.notFound('User not found');
+
+        // Check for duplicate national ID
+        const existing = await prisma.user.findUnique({
+            where: { nationalId: input.nationalId },
+        });
+
+        if (existing && existing.id !== userId) {
+            throw AppError.conflict('National ID already registered');
+        }
+
+        const updated = await userRepository.submitKYC(userId, input);
+
+        auditService.log({
+            userId,
+            action: 'USER.KYC_SUBMITTED',
+            resource: 'USER',
+            resourceId: userId,
+        });
+
+        return this.sanitizeUser(updated);
+    }
+
+    async getKYCStatus(userId: string) {
+        const user = await userRepository.findById(userId);
+
+        if (!user) throw AppError.notFound('User not found');
+
+        return {
+            status: user.kycStatus,
+            tier: user.accountTier,
+            verifiedAt: user.kycVerifiedAt,
+            rejectionReason: user.kycRejectionReason,
+        };
+    }
+
+    async approveKYC(userId: string): Promise<UserPublic> {
+        const user = await userRepository.findById(userId);
+
+        if (!user) throw AppError.notFound('User not found');
+
+        const updated = await userRepository.approveKYC(userId);
+
+        auditService.log({
+            userId,
+            action: 'ADMIN.KYC_APPROVED',
+            resource: 'USER',
+            resourceId: userId,
+        });
+
+        // TODO: Send KYC approved email
+        // await notificationService.sendKYCApprovedEmail(user.email);
+
+        return this.sanitizeUser(updated);
+    }
+
+    async rejectKYC(userId: string, reason: string): Promise<UserPublic> {
+        const user = await userRepository.findById(userId);
+
+        if (!user) throw AppError.notFound('User not found');
+
+        const updated = await userRepository.rejectKYC(userId, reason);
+
+        auditService.log({
+            userId,
+            action: 'ADMIN.KYC_REJECTED',
+            resource: 'USER',
+            resourceId: userId,
+            metadata: { reason },
+        });
+
+        // TODO: Send KYC rejected email
+        // await notificationService.sendKYCRejectedEmail(user.email, reason);
+
+        return this.sanitizeUser(updated);
     }
 }
 

@@ -1,9 +1,5 @@
 import { z } from 'zod';
 
-// ═══════════════════════════════════════════════════════════════════════════
-// ACCOUNT CORE TYPES
-// ═══════════════════════════════════════════════════════════════════════════
-
 export const CreateAccountSchema = z.object({
     currency: z
         .string()
@@ -20,10 +16,6 @@ export type CreateAccountInput = z.infer<typeof CreateAccountSchema>;
 export type UpdateAccountStatusInput = z.infer<
     typeof UpdateAccountStatusSchema
 >;
-
-// ═══════════════════════════════════════════════════════════════════════════
-// ACCOUNT FEATURES TYPES
-// ═══════════════════════════════════════════════════════════════════════════
 
 // Account Preferences
 export const AccountPreferencesSchema = z.object({

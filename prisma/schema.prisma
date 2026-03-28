@@ -22,6 +22,34 @@ model User {
   status       String   @default("ACTIVE")
   createdAt    DateTime @default(now())
 
+  emailVerified           Boolean   @default(false)
+  emailVerificationToken  String?   @unique
+  emailVerificationExpiry DateTime?
+
+  passwordResetToken  String?   @unique
+  passwordResetExpiry DateTime?
+
+  // 2FA/TOTP
+  totpSecret  String?  // Encrypted
+  totpEnabled Boolean  @default(false)
+
+  // Account security
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+
+  // KYC/Compliance (for future use)
+  dateOfBirth     DateTime?
+  nationalId      String?     @unique
+  idType          String?     // PASSPORT, NATIONAL_ID, DRIVER_LICENSE
+  address         String?
+  city            String?
+  country         String?
+  postalCode      String?
+  accountTier     String      @default("BASIC") // BASIC, STANDARD, GOLD
+  kycStatus       String      @default("PENDING") // PENDING, APPROVED, REJECTED
+  kycVerifiedAt   DateTime?
+  kycRejectionReason String?
+
   accounts Account[]
 }
 
