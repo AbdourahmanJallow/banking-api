@@ -66,8 +66,6 @@ export const updateAccountStatus = asyncHandler(
     },
 );
 
-// ── Beneficiary Controllers ──────────────────────────────────────────────
-
 export const addBeneficiary = asyncHandler(
     async (req: Request, res: Response) => {
         if (!req.user) throw AppError.unauthorized();
@@ -111,8 +109,6 @@ export const listBeneficiaries = asyncHandler(
         sendSuccess(res, beneficiaries);
     },
 );
-
-// ── Standing Order Controllers ──────────────────────────────────────────
 
 export const createStandingOrder = asyncHandler(
     async (req: Request, res: Response) => {
@@ -170,8 +166,6 @@ export const listStandingOrders = asyncHandler(
     },
 );
 
-// ── Preferences Controllers ──────────────────────────────────────────────
-
 export const updatePreferences = asyncHandler(
     async (req: Request, res: Response) => {
         if (!req.user) throw AppError.unauthorized();
@@ -208,8 +202,6 @@ export const getPreferences = asyncHandler(
     },
 );
 
-// ── Transaction Limits Controllers ──────────────────────────────────────
-
 export const setTransactionLimits = asyncHandler(
     async (req: Request, res: Response) => {
         if (!req.user) throw AppError.unauthorized();
@@ -241,8 +233,6 @@ export const getTransactionLimits = asyncHandler(
         sendSuccess(res, limits || {});
     },
 );
-
-// ── Alert Controllers ──────────────────────────────────────────────────
 
 export const createAlert = asyncHandler(async (req: Request, res: Response) => {
     if (!req.user) throw AppError.unauthorized();
@@ -280,8 +270,6 @@ export const listAlerts = asyncHandler(async (req: Request, res: Response) => {
 
     sendSuccess(res, alerts);
 });
-
-// ── Statement Controllers ──────────────────────────────────────────────
 
 export const generateStatement = asyncHandler(
     async (req: Request, res: Response) => {
@@ -325,8 +313,6 @@ export const listStatements = asyncHandler(
         sendSuccess(res, result);
     },
 );
-
-// ── Analytics Controllers ──────────────────────────────────────────────
 
 export const getSpendingByCategory = asyncHandler(
     async (req: Request, res: Response) => {

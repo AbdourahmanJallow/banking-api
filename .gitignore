@@ -1,8 +1,28 @@
 node_modules
 # Keep environment variables out of version control
 .env
+.env.local
+.env.*.local
 
 /src/generated/prisma
 
 /generated/prisma
 .idea
+.vscode
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Dependencies
+dist/
+build/
+
+# Testing
+coverage/
+.nyc_output/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -30,18 +30,18 @@ const router = Router();
 
 router.use(authenticate);
 
-// ── Account Management ──────────────────────────────────────────────────────
+// Account Management
 router.post('/', createAccount);
 router.get('/', getMyAccounts);
 router.get('/:id', getAccount);
 router.patch('/:id/status', updateAccountStatus);
 
-// ── Beneficiary Management ──────────────────────────────────────────────────
+// Beneficiary Management
 router.post('/:accountId/beneficiaries', addBeneficiary);
 router.get('/:accountId/beneficiaries', listBeneficiaries);
 router.delete('/:accountId/beneficiaries/:beneficiaryId', removeBeneficiary);
 
-// ── Standing Orders ────────────────────────────────────────────────────────
+// Standing Orders
 router.post('/:accountId/standing-orders', createStandingOrder);
 router.get('/:accountId/standing-orders', listStandingOrders);
 router.patch('/:accountId/standing-orders/:orderId/pause', pauseStandingOrder);
@@ -50,24 +50,24 @@ router.patch(
     resumeStandingOrder,
 );
 
-// ── Preferences ────────────────────────────────────────────────────────────
+// Preferences
 router.get('/:accountId/preferences', getPreferences);
 router.put('/:accountId/preferences', updatePreferences);
 
-// ── Transaction Limits ────────────────────────────────────────────────────
+// Transaction Limits
 router.post('/:accountId/limits', setTransactionLimits);
 router.get('/:accountId/limits', getTransactionLimits);
 
-// ── Alerts ────────────────────────────────────────────────────────────────
+// Alerts
 router.post('/:accountId/alerts', createAlert);
 router.get('/:accountId/alerts', listAlerts);
 router.delete('/:accountId/alerts/:alertId', disableAlert);
 
-// ── Statements ────────────────────────────────────────────────────────────
+// Statements
 router.post('/:accountId/statements', generateStatement);
 router.get('/:accountId/statements', listStatements);
 
-// ── Analytics ────────────────────────────────────────────────────────────
+// Analytics
 router.get('/:accountId/analytics/spending', getSpendingByCategory);
 router.get('/:accountId/analytics/trends', getMonthlySpendingTrend);
 router.get('/:accountId/analytics/merchants', getTopMerchants);

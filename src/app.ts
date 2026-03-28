@@ -56,7 +56,7 @@ export function createApp(): Express {
 
     app.use('/api/v1', apiRouter);
 
-    // ── 404 ─────────────────────────────────────────────────────────────────
+    // 404 Handler
     app.use((_req: Request, res: Response) => {
         res.status(404).json({
             success: false,
@@ -64,7 +64,6 @@ export function createApp(): Express {
         });
     });
 
-    // ── Global error handler (must be last) ──────────────────────────────────
     app.use(errorHandler);
 
     return app;
