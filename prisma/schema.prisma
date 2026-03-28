@@ -36,7 +36,19 @@ model Account {
 
   user User @relation(fields: [userId], references: [id])
 
-  ledgerEntries LedgerEntry[]
+  ledgerEntries       LedgerEntry[]
+  preferences         AccountPreference?
+  beneficiaries       Beneficiary[]
+  standingOrdersFrom  StandingOrder[] @relation("StandingOrderFrom")
+  standingOrdersTo    StandingOrder[] @relation("StandingOrderTo")
+  transactionLimits   TransactionLimit?
+  alerts              AccountAlert[]
+  holds               AccountHold[]
+  statements          AccountStatement[]
+  spendingCategories  SpendingCategory[]
+
+  @@index([userId])
+  @@index([status])
 }
 
 model Transaction {
@@ -48,7 +60,11 @@ model Transaction {
   status    String
   createdAt DateTime @default(now())
 
-  ledgerEntries LedgerEntry[]
+  ledgerEntries     LedgerEntry[]
+  spendingCategories SpendingCategory[]
+
+  @@index([status])
+  @@index([createdAt])
 }
 
 model LedgerEntry {
@@ -84,4 +100,138 @@ model IdempotencyKey {
   requestHash String
   response    String?
   createdAt   DateTime @default(now())
+}
+
+model AccountPreference {
+  id                        String   @id @default(uuid())
+  accountId                 String   @unique
+  notificationsEnabled      Boolean  @default(true)
+  lowBalanceThreshold       Float    @default(1000)
+  statementFrequency        String   @default("MONTHLY")
+  cardlessWithdrawalAllowed Boolean  @default(true)
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+}
+
+model Beneficiary {
+  id        String   @id @default(uuid())
+  accountId String
+  name      String
+  bankCode  String
+  bankAccount String
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([deletedAt])
+}
+
+model StandingOrder {
+  id                  String   @id @default(uuid())
+  fromAccountId       String
+  toAccountId         String
+  amount              Float
+  frequency           String   // DAILY, WEEKLY, MONTHLY
+  nextExecutionDate   DateTime
+  startDate           DateTime
+  endDate             DateTime?
+  status              String   @default("ACTIVE") // ACTIVE, PAUSED, COMPLETED
+  executionCount      Int      @default(0)
+  lastExecutionDate   DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  fromAccount Account @relation("StandingOrderFrom", fields: [fromAccountId], references: [id], onDelete: Cascade)
+  toAccount   Account @relation("StandingOrderTo", fields: [toAccountId], references: [id], onDelete: Cascade)
+
+  @@index([fromAccountId])
+  @@index([toAccountId])
+  @@index([status])
+  @@index([nextExecutionDate])
+}
+
+model TransactionLimit {
+  id                       String   @id @default(uuid())
+  accountId                String   @unique
+  singleTransactionMaximum Float?
+  dailyWithdrawalLimit     Float?
+  dailyTransactionCount    Int?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+}
+
+model AccountAlert {
+  id        String   @id @default(uuid())
+  accountId String
+  type      String   // LOW_BALANCE, LARGE_DEBIT, UNUSUAL_ACTIVITY, STATEMENT_READY
+  threshold Float?
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([type])
+}
+
+model AccountHold {
+  id        String   @id @default(uuid())
+  accountId String
+  amount    Float
+  reason    String   // COMPLIANCE_CHECK, FRAUD_INVESTIGATION, COURT_ORDER
+  expiryDate DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([expiryDate])
+}
+
+model AccountStatement {
+  id             String   @id @default(uuid())
+  accountId      String
+  periodStart    DateTime
+  periodEnd      DateTime
+  openingBalance Float
+  closingBalance Float
+  totalCredits   Float
+  totalDebits    Float
+  transactionCount Int    @default(0)
+  createdAt      DateTime @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([periodStart])
+  @@index([periodEnd])
+}
+
+model SpendingCategory {
+  id            String   @id @default(uuid())
+  transactionId String
+  accountId     String
+  category      String
+  amount        Float
+  createdAt     DateTime @default(now())
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  account     Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([category])
+  @@index([createdAt])
 }
