@@ -26,10 +26,6 @@ class UserService {
     private readonly SALT_ROUNDS = 12;
     private readonly TOKEN_LENGTH = 32; // bytes for random tokens
 
-    // ───────────────────────────────────────────────────────────────────────────
-    // HELPERS
-    // ───────────────────────────────────────────────────────────────────────────
-
     private generateToken(): string {
         return randomBytes(this.TOKEN_LENGTH).toString('hex');
     }
@@ -44,10 +40,6 @@ class UserService {
         const { passwordHash: _, ...profile } = user;
         return profile;
     }
-
-    // ───────────────────────────────────────────────────────────────────────────
-    // CORE USER MANAGEMENT
-    // ───────────────────────────────────────────────────────────────────────────
 
     async getProfile(userId: string): Promise<UserPublic> {
         const user = await userRepository.findById(userId);
@@ -245,22 +237,35 @@ class UserService {
             throw AppError.badRequest('2FA is already enabled');
         }
 
-        // NOTE: Requires speakeasy package - npm install speakeasy
-        // const secret = speakeasy.generateSecret({
-        //     name: `Banking API (${user.email})`,
-        //     issuer: 'Banking API',
-        //     length: 32,
-        // });
+        // Generate TOTP secret
+        const secret = speakeasy.generateSecret({
+            name: `Banking API (${user.email})`,
+            issuer: 'Banking API',
+            length: 32,
+        });
 
-        // const qrCode = await QRCode.toDataURL(secret.otpauth_url!);
-        // const backupCodes = this.generateBackupCodes();
+        // Generate QR code for authenticator app
+        const qrCode = await QRCode.toDataURL(secret.otpauth_url!);
 
-        // // Encrypt before storing (implement encryption based on your needs)
-        // await userRepository.setTOTPSecret(userId, secret.base32);
+        // Generate backup codes for account recovery
+        const backupCodes = this.generateBackupCodes();
 
-        throw AppError.internal(
-            'Speakeasy package not installed. Run: npm install speakeasy qrcode',
-        );
+        // Store the TOTP secret (not enabled yet, needs confirmation)
+        await userRepository.setTOTPSecret(userId, secret.base32);
+
+        auditService.log({
+            userId,
+            action: 'USER.2FA_SETUP_INITIATED',
+            resource: 'USER',
+            resourceId: userId,
+        });
+
+        // Return setup data for frontend to display
+        return {
+            secret: secret.base32,
+            qrCode,
+            backupCodes,
+        };
     }
 
     async confirmTOTP(userId: string, input: ConfirmTOTPInput): Promise<void> {
@@ -276,18 +281,19 @@ class UserService {
             throw AppError.badRequest('2FA is already enabled');
         }
 
-        // NOTE: Requires speakeasy package - npm install speakeasy
-        // const verified = speakeasy.totp.verify({
-        //     secret: input.secret,
-        //     encoding: 'base32',
-        //     token: input.token,
-        //     window: 2,
-        // });
+        // Verify the token against the stored secret
+        const verified = speakeasy.totp.verify({
+            secret: input.secret,
+            encoding: 'base32',
+            token: input.token,
+            window: 2,
+        });
 
-        // if (!verified) {
-        //     throw AppError.badRequest('Invalid token');
-        // }
+        if (!verified) {
+            throw AppError.badRequest('Invalid token. Please try again.');
+        }
 
+        // Confirmed, enable 2FA
         await userRepository.enableTOTP(userId);
 
         auditService.log({
@@ -296,10 +302,6 @@ class UserService {
             resource: 'USER',
             resourceId: userId,
         });
-
-        throw AppError.internal(
-            'Speakeasy package not installed. Run: npm install speakeasy qrcode',
-        );
     }
 
     async validateTOTP(
@@ -314,19 +316,15 @@ class UserService {
             throw AppError.badRequest('2FA is not enabled');
         }
 
-        // NOTE: Requires speakeasy package - npm install speakeasy
-        // const verified = speakeasy.totp.verify({
-        //     secret: user.totpSecret,
-        //     encoding: 'base32',
-        //     token: input.token,
-        //     window: 2,
-        // });
+        // Verify the TOTP token
+        const verified = speakeasy.totp.verify({
+            secret: user.totpSecret,
+            encoding: 'base32',
+            token: input.token,
+            window: 2,
+        });
 
-        // return verified;
-
-        throw AppError.internal(
-            'Speakeasy package not installed. Run: npm install speakeasy qrcode',
-        );
+        return verified;
     }
 
     async disableTOTP(userId: string, input: DisableTOTPInput): Promise<void> {

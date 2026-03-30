@@ -3,8 +3,9 @@
  * All external dependencies (AccountRepository, generateAccountNumber) are mocked.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { AlertType, Frequency } from '../../src/modules/accounts/account.types';
 
-// ── Mocks ─────────────────────────────────────────────────────────────────────
+// Mocks
 
 vi.mock('../../src/lib/prisma', () => ({
     default: {
@@ -27,6 +28,12 @@ vi.mock('../../src/lib/prisma', () => ({
                     }),
                 ).then((p) => p),
             ),
+        beneficiary: {
+            count: vi.fn().mockResolvedValue(5),
+        },
+        standingOrder: {
+            count: vi.fn().mockResolvedValue(3),
+        },
     },
 }));
 
@@ -40,6 +47,38 @@ vi.mock('../../src/modules/accounts/account.repository', () => ({
         updateBalance: vi.fn(),
         deleteById: vi.fn(),
         deleteByUserId: vi.fn(),
+        updateAllByUserId: vi.fn(),
+    },
+    beneficiaryRepository: {
+        create: vi.fn(),
+        findById: vi.fn(),
+        findByAccountId: vi.fn(),
+        deleteById: vi.fn(),
+        softDelete: vi.fn(),
+    },
+    standingOrderRepository: {
+        create: vi.fn(),
+        findById: vi.fn(),
+        findByAccountId: vi.fn(),
+        updateStatus: vi.fn(),
+    },
+    accountPreferencesRepository: {
+        upsert: vi.fn(),
+        findByAccountId: vi.fn(),
+    },
+    transactionLimitsRepository: {
+        upsert: vi.fn(),
+        findByAccountId: vi.fn(),
+    },
+    alertRepository: {
+        create: vi.fn(),
+        findById: vi.fn(),
+        findByAccountId: vi.fn(),
+        update: vi.fn(),
+    },
+    statementRepository: {
+        create: vi.fn(),
+        findByAccountId: vi.fn(),
     },
 }));
 
@@ -51,14 +90,22 @@ vi.mock('../../src/utils/generateAccountNumber', () => ({
     generateAccountNumber: vi.fn().mockReturnValue('ACC1234567890'),
 }));
 
-// ── Imports (after mocks) ─────────────────────────────────────────────────────
+// Imports (after mocks)
 
 import prisma from '../../src/lib/prisma';
-import { accountRepository } from '../../src/modules/accounts/account.repository';
+import {
+    accountRepository,
+    beneficiaryRepository,
+    standingOrderRepository,
+    accountPreferencesRepository,
+    transactionLimitsRepository,
+    alertRepository,
+    statementRepository,
+} from '../../src/modules/accounts/account.repository';
 import { generateAccountNumber } from '../../src/utils/generateAccountNumber';
 import { accountService } from '../../src/modules/accounts/account.service';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// Helpers
 
 const mockAccount = {
     id: 'account-id-123',
@@ -71,7 +118,7 @@ const mockAccount = {
     updatedAt: new Date(),
 };
 
-// ── createAccount ─────────────────────────────────────────────────────────────
+// createAccount
 
 describe('accountService.createAccount', () => {
     beforeEach(() => vi.clearAllMocks());
@@ -141,7 +188,7 @@ describe('accountService.createAccount', () => {
     });
 });
 
-// ── getAccount ────────────────────────────────────────────────────────────────
+// getAccount
 
 describe('accountService.getAccount', () => {
     beforeEach(() => vi.clearAllMocks());
@@ -178,7 +225,7 @@ describe('accountService.getAccount', () => {
     });
 });
 
-// ── getUserAccounts ───────────────────────────────────────────────────────────
+// getUserAccounts
 
 describe('accountService.getUserAccounts', () => {
     beforeEach(() => vi.clearAllMocks());
@@ -205,7 +252,7 @@ describe('accountService.getUserAccounts', () => {
     });
 });
 
-// ── updateAccountStatus ───────────────────────────────────────────────────────
+// updateAccountStatus
 
 describe('accountService.updateAccountStatus', () => {
     beforeEach(() => vi.clearAllMocks());
@@ -267,5 +314,354 @@ describe('accountService.updateAccountStatus', () => {
                 'other-user',
             ),
         ).rejects.toMatchObject({ statusCode: 403 });
+    });
+});
+
+// Beneficiaries
+
+describe('accountService - Beneficiaries', () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    const mockBeneficiary = {
+        id: 'beneficiary-123',
+        accountId: 'account-123',
+        bankName: 'Bank ABC',
+        accountNumber: 'ACCT001',
+        accountHolderName: 'John Doe',
+        relationship: 'Friend',
+        createdAt: new Date(),
+    };
+
+    it('addBeneficiary creates a new beneficiary for account', async () => {
+        vi.mocked(accountRepository.findById).mockResolvedValue(
+            mockAccount as any,
+        );
+        vi.mocked(beneficiaryRepository.create).mockResolvedValue(
+            mockBeneficiary as any,
+        );
+
+        const result = await accountService.addBeneficiary(
+            'account-id-123',
+            {
+                name: 'John Doe',
+                accountNumber: 'ACCT001',
+                bankCode: 'BANK_ABC',
+            },
+            'user-id-123',
+        );
+
+        expect(beneficiaryRepository.create).toHaveBeenCalled();
+        expect(result.accountHolderName).toBe('John Doe');
+    });
+
+    it('removeBeneficiary deletes beneficiary if user owns account', async () => {
+        vi.mocked(beneficiaryRepository.findById).mockResolvedValue(
+            mockBeneficiary as any,
+        );
+        vi.mocked(accountRepository.findById).mockResolvedValue(
+            mockAccount as any,
+        );
+        vi.mocked(beneficiaryRepository.softDelete).mockResolvedValue(
+            undefined,
+        );
+
+        await accountService.removeBeneficiary(
+            'beneficiary-123',
+            'user-id-123',
+        );
+
+        expect(beneficiaryRepository.softDelete).toHaveBeenCalled();
+    });
+
+    it('listBeneficiaries returns all beneficiaries for account', async () => {
+        vi.mocked(accountRepository.findById).mockResolvedValue(
+            mockAccount as any,
+        );
+        vi.mocked(beneficiaryRepository.findByAccountId).mockResolvedValue([
+            mockBeneficiary,
+        ] as any);
+
+        const result = await accountService.listBeneficiaries(
+            'account-id-123',
+            'user-id-123',
+        );
+
+        expect(result).toHaveLength(1);
+        expect(result[0].accountHolderName).toBe('John Doe');
+    });
+});
+
+// Standing Orders
+
+describe('accountService - Standing Orders', () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    const mockStandingOrder = {
+        id: 'order-123',
+        fromAccountId: 'account-123',
+        toAccountId: 'account-456',
+        amount: 1000,
+        frequency: Frequency.MONTHLY,
+        startDate: new Date(),
+        endDate: null,
+        status: 'ACTIVE',
+        createdAt: new Date(),
+    };
+
+    it('createStandingOrder schedules recurring transfer', async () => {
+        const destinationAccount = { ...mockAccount, id: 'account-456' };
+        vi.mocked(accountRepository.findById)
+            .mockResolvedValueOnce(mockAccount as any)
+            .mockResolvedValueOnce(destinationAccount as any);
+        vi.mocked(standingOrderRepository.create).mockResolvedValue(
+            mockStandingOrder as any,
+        );
+
+        const result = await accountService.createStandingOrder(
+            'account-id-123',
+            {
+                toAccountId: 'account-456',
+                amount: 1000,
+                frequency: Frequency.MONTHLY,
+                startDate: new Date(),
+            },
+            'user-id-123',
+        );
+
+        expect(standingOrderRepository.create).toHaveBeenCalled();
+        expect(result.status).toBe('ACTIVE');
+    });
+
+    it('pauseStandingOrder pauses active order', async () => {
+        vi.mocked(standingOrderRepository.findById).mockResolvedValue(
+            mockStandingOrder as any,
+        );
+        vi.mocked(accountRepository.findById).mockResolvedValue(
+            mockAccount as any,
+        );
+
+        await accountService.pauseStandingOrder('order-123', 'user-id-123');
+
+        expect(standingOrderRepository.updateStatus).toHaveBeenCalledWith(
+            'order-123',
+            'PAUSED',
+            expect.any(Object),
+        );
+    });
+
+    it('resumeStandingOrder resumes paused order', async () => {
+        const pausedOrder = { ...mockStandingOrder, status: 'PAUSED' };
+        vi.mocked(standingOrderRepository.findById).mockResolvedValue(
+            pausedOrder as any,
+        );
+        vi.mocked(accountRepository.findById).mockResolvedValue(
+            mockAccount as any,
+        );
+
+        await accountService.resumeStandingOrder('order-123', 'user-id-123');
+
+        expect(standingOrderRepository.updateStatus).toHaveBeenCalledWith(
+            'order-123',
+            'ACTIVE',
+            expect.any(Object),
+        );
+    });
+
+    it('listStandingOrders returns all orders for account', async () => {
+        vi.mocked(accountRepository.findById).mockResolvedValue(
+            mockAccount as any,
+        );
+        vi.mocked(standingOrderRepository.findByAccountId).mockResolvedValue([
+            mockStandingOrder,
+        ] as any);
+
+        const result = await accountService.listStandingOrders(
+            'account-id-123',
+            'user-id-123',
+        );
+
+        expect(result).toHaveLength(1);
+        expect(result[0].frequency).toBe('MONTHLY');
+    });
+});
+
+// Account Preferences
+
+describe('accountService - Preferences', () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    const mockPreferences = {
+        id: 'pref-123',
+        accountId: 'account-123',
+        displayName: 'My Main Account',
+        notificationsEnabled: true,
+        statementDelivery: 'EMAIL',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+    };
+
+    it('updatePreferences saves account preferences', async () => {
+        vi.mocked(accountRepository.findById).mockResolvedValue(
+            mockAccount as any,
+        );
+        vi.mocked(accountPreferencesRepository.upsert).mockResolvedValue(
+            mockPreferences as any,
+        );
+
+        const result = await accountService.updatePreferences(
+            'account-id-123',
+            {
+                notificationsEnabled: true,
+                statementFrequency: 'MONTHLY',
+                cardlessWithdrawalAllowed: true,
+            },
+            'user-id-123',
+        );
+
+        expect(accountPreferencesRepository.upsert).toHaveBeenCalled();
+        expect(result.displayName).toBe('My Main Account');
+    });
+
+    it('getPreferences retrieves preferences for account', async () => {
+        vi.mocked(accountRepository.findById).mockResolvedValue(
+            mockAccount as any,
+        );
+        vi.mocked(
+            accountPreferencesRepository.findByAccountId,
+        ).mockResolvedValue(mockPreferences as any);
+
+        const result = await accountService.getPreferences(
+            'account-id-123',
+            'user-id-123',
+        );
+
+        expect(result.notificationsEnabled).toBe(true);
+        expect(result.statementDelivery).toBe('EMAIL');
+    });
+});
+
+// Transaction Limits
+
+describe('accountService - Transaction Limits', () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    const mockLimits = {
+        id: 'limits-123',
+        accountId: 'account-123',
+        dailyLimit: 10000,
+        singleTransactionMaximum: 5000,
+        monthlyLimit: 100000,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+    };
+
+    it('setTransactionLimits updates limits for account', async () => {
+        vi.mocked(accountRepository.findById).mockResolvedValue(
+            mockAccount as any,
+        );
+        vi.mocked(transactionLimitsRepository.upsert).mockResolvedValue(
+            mockLimits as any,
+        );
+
+        const result = await accountService.setTransactionLimits(
+            'account-id-123',
+            {
+                dailyTransactionLimit: 10000,
+                singleTransactionMaximum: 5000,
+            },
+            'user-id-123',
+        );
+
+        expect(transactionLimitsRepository.upsert).toHaveBeenCalled();
+        expect(result.dailyLimit).toBe(10000);
+    });
+
+    it('getTransactionLimits retrieves limits for account', async () => {
+        vi.mocked(accountRepository.findById).mockResolvedValue(
+            mockAccount as any,
+        );
+        vi.mocked(
+            transactionLimitsRepository.findByAccountId,
+        ).mockResolvedValue(mockLimits as any);
+
+        const result = await accountService.getTransactionLimits(
+            'account-id-123',
+            'user-id-123',
+        );
+
+        expect(result.singleTransactionMaximum).toBe(5000);
+    });
+
+    it('validateTransactionAgainstLimits throws if exceeds limits', async () => {
+        vi.mocked(
+            transactionLimitsRepository.findByAccountId,
+        ).mockResolvedValue(mockLimits as any);
+
+        const result = await accountService.validateTransactionAgainstLimits(
+            'account-id-123',
+            6000, // exceeds transaction limit
+        );
+
+        expect(result.valid).toBe(false);
+    });
+
+    it('validateTransactionAgainstLimits passes if within limits', async () => {
+        vi.mocked(
+            transactionLimitsRepository.findByAccountId,
+        ).mockResolvedValue(mockLimits as any);
+
+        const result = await accountService.validateTransactionAgainstLimits(
+            'account-id-123',
+            4500, // within transaction limit
+        );
+
+        expect(result.valid).toBe(true);
+    });
+});
+
+// Alerts
+
+describe('accountService - Alerts', () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    const mockAlert = {
+        id: 'alert-123',
+        accountId: 'account-123',
+        alertType: AlertType.LARGE_DEBIT,
+        threshold: 50000,
+        isActive: true,
+        createdAt: new Date(),
+    };
+
+    it('createAlert creates transaction alert', async () => {
+        vi.mocked(accountRepository.findById).mockResolvedValue(
+            mockAccount as any,
+        );
+        vi.mocked(alertRepository.create).mockResolvedValue(mockAlert as any);
+
+        const result = await accountService.createAlert(
+            'account-id-123',
+            {
+                type: AlertType.LARGE_DEBIT,
+                threshold: 50000,
+                enabled: true,
+            },
+            'user-id-123',
+        );
+
+        expect(alertRepository.create).toHaveBeenCalled();
+        expect(result.isActive).toBe(true);
+    });
+
+    it('disableAlert disables alert for account', async () => {
+        vi.mocked(alertRepository.findById).mockResolvedValue(mockAlert as any);
+        vi.mocked(accountRepository.findById).mockResolvedValue(
+            mockAccount as any,
+        );
+        vi.mocked(alertRepository.update).mockResolvedValue(undefined);
+
+        await accountService.disableAlert('alert-123', 'user-id-123');
+
+        expect(alertRepository.update).toHaveBeenCalled();
     });
 });
