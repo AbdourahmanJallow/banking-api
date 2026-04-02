@@ -63,8 +63,10 @@ export const requireOwnership = (getResourceUserId: (req: Request) => string) =>
         if (!req.user) throw AppError.unauthorized();
 
         const resourceUserId = getResourceUserId(req);
+
         if (req.user.userId !== resourceUserId) {
             throw AppError.forbidden('You do not have access to this resource');
         }
+
         next();
     });

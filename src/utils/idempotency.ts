@@ -52,7 +52,7 @@ class IdempotencyService {
         operation: () => Promise<{ statusCode: number; data: T }>,
         ttlSeconds = DEFAULT_TTL_SECONDS,
     ): Promise<IdempotencyResult<T>> {
-        // ── Graceful degradation when Redis is unavailable ─────────────────
+        // Graceful degradation when Redis is unavailable
         if (!redisService.connected) {
             const result = await operation();
             return { ...result, replayed: false };
@@ -61,7 +61,7 @@ class IdempotencyService {
         const resultKey = this.resultKey(userId, idempotencyKey);
         const lockKey = this.lockKey(userId, idempotencyKey);
 
-        // ── Fast path: result already cached ──────────────────────────────
+        // Fast path: result already cached
         const cached = await redisService.getJSON<StoredRecord<T>>(resultKey);
         if (cached) {
             return {
@@ -71,7 +71,7 @@ class IdempotencyService {
             };
         }
 
-        // ── Acquire distributed lock (SET NX EX) ──────────────────────────
+        // Acquire distributed lock (SET NX EX)
         const lockAcquired = await redisService.setNX(
             lockKey,
             '1',
@@ -100,10 +100,10 @@ class IdempotencyService {
                 };
             }
 
-            // ── Execute the real operation ─────────────────────────────────
+            // Execute the real operation
             const result = await operation();
 
-            // ── Persist the result for future replays ─────────────────────
+            // Persist the result for future replays
             const record: StoredRecord<T> = {
                 statusCode: result.statusCode,
                 data: result.data,

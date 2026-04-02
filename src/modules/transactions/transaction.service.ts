@@ -29,7 +29,7 @@ class TransactionService {
         return `TXN-${Date.now()}-${randomUUID().slice(0, 8).toUpperCase()}`;
     }
 
-    // ── Private ACID helpers ─────────────────────────────────────────────
+    // Private ACID helpers
     // Each method runs entirely inside a single prisma.$transaction().
     // If any step throws, Postgres rolls back every write atomically.
 
@@ -180,7 +180,7 @@ class TransactionService {
         }, TX_OPTIONS);
     }
 
-    // ── Public methods ────────────────────────────────────────────────────
+    // Public methods
 
     async transfer(
         input: TransferInput,

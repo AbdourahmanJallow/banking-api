@@ -3,7 +3,6 @@ import { adminService } from './admin.service';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { sendSuccess, sendPaginated } from '../../utils/response';
 import { z } from 'zod';
-// Audit log queries are handled by the dedicated /api/v1/audit routes.
 
 export const getDashboard = asyncHandler(
     async (_req: Request, res: Response) => {

@@ -32,10 +32,6 @@ export const VerifyEmailSchema = z.object({
 
 export type VerifyEmailInput = z.infer<typeof VerifyEmailSchema>;
 
-// ═══════════════════════════════════════════════════════════════════════════
-// PASSWORD RESET
-// ═══════════════════════════════════════════════════════════════════════════
-
 export const InitiatePasswordResetSchema = z.object({
     email: z.string().email('Invalid email address'),
 });

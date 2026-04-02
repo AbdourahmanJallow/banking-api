@@ -4,7 +4,7 @@ import { generateAccountNumber } from '../utils/generateAccountNumber';
 
 const SALT_ROUNDS = 10;
 
-// ── Seed data ─────────────────────────────────────────────────────────────────
+// Seed data
 
 const users = [
     {
@@ -58,7 +58,7 @@ const users = [
     },
 ];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// Helpers
 
 async function uniqueAccountNumber(): Promise<string> {
     let number: string;
@@ -74,12 +74,12 @@ async function uniqueAccountNumber(): Promise<string> {
     return number!;
 }
 
-// ── Main ──────────────────────────────────────────────────────────────────────
+// Main
 
 export async function seed() {
     console.log('🌱  Seeding database...');
 
-    // ── Users ────────────────────────────────────────────────────────────────
+    // Users
     const createdUsers: { id: string; email: string }[] = [];
 
     for (const userData of users) {
@@ -101,7 +101,7 @@ export async function seed() {
         console.log(`  ✔ User: ${user.email}`);
     }
 
-    // ── Accounts ─────────────────────────────────────────────────────────────
+    // Accounts
 
     // Admin gets one operational account
     const adminUser = createdUsers[0];

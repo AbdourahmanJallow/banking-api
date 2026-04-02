@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// ── Log-entry shape written by the service ─────────────────────────────────
+// Log-entry shape written by the service
 
 export interface AuditEntry {
     userId?: string | null;
@@ -15,7 +15,7 @@ export interface AuditEntry {
     metadata?: Record<string, unknown> | null;
 }
 
-// ── Query filters ─────────────────────────────────────────────────────────
+// Query filters
 
 export const AuditLogQuerySchema = z.object({
     userId: z.string().uuid().optional(),

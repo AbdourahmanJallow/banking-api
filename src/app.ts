@@ -24,7 +24,6 @@ export function createApp(): Express {
             allowedHeaders: [
                 'Content-Type',
                 'Authorization',
-                'X-Organization-Id',
             ],
         }),
     );

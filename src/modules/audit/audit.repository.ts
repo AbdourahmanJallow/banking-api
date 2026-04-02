@@ -3,7 +3,16 @@ import { AuditEntry, AuditLogQuery } from './audit.types';
 
 class AuditRepository {
     create(data: AuditEntry) {
-        return prisma.auditLog.create({ data });
+        const { metadata, ...rest } = data;
+
+        return prisma.auditLog.create({
+            data: {
+                ...rest,
+                ...(metadata !== null && {
+                    metadata: JSON.parse(JSON.stringify(metadata)),
+                }),
+            },
+        });
     }
 
     findById(id: string) {

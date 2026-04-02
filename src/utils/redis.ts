@@ -9,7 +9,7 @@ class RedisService {
     private client: RedisClient | null = null;
     private isConnected = false;
 
-    // ── Connection ─────────────────────────────────────────────────────────
+    // Connection
 
     async connect(url: string): Promise<void> {
         if (this.isConnected) return;
@@ -44,7 +44,7 @@ class RedisService {
         return this.client;
     }
 
-    // ── Generic key/value ──────────────────────────────────────────────────
+    // Generic key/value
 
     async get(key: string): Promise<string | null> {
         return this.ensureConnected().get(key);
@@ -108,7 +108,7 @@ class RedisService {
         }
     }
 
-    // ── Token blacklisting ─────────────────────────────────────────────────
+    // Token blacklisting
 
     /**
      * Adds an access token to the blacklist.
@@ -122,7 +122,7 @@ class RedisService {
         return this.exists(`${TOKEN_BLACKLIST_PREFIX}${token}`);
     }
 
-    // ── Refresh token store ────────────────────────────────────────────────
+    // Refresh token store
 
     /**
      * Stores a refresh token bound to a userId so it can be revoked on logout.
@@ -143,7 +143,7 @@ class RedisService {
         await this.del(`${REFRESH_TOKEN_PREFIX}${userId}`);
     }
 
-    // ── Rate-limit / counter helpers ───────────────────────────────────────
+    // Rate-limit / counter helpers
 
     async increment(key: string, ttlSeconds?: number): Promise<number> {
         const client = this.ensureConnected();
@@ -158,7 +158,7 @@ class RedisService {
         return this.ensureConnected().decr(key);
     }
 
-    // ── Cache helpers ──────────────────────────────────────────────────────
+    // Cache helpers
 
     async getOrSet<T>(
         key: string,
