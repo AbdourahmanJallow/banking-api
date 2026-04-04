@@ -4,6 +4,7 @@ import { createApp } from './app';
 import { config } from './config';
 import { connectDB, gracefulShutdown } from './lib/prisma';
 import { connectRedis, disconnectRedis } from './config/redis';
+import { closeEmailQueue } from './modules/notifications/notification.queue';
 
 async function main() {
     await connectDB();
@@ -22,6 +23,7 @@ async function main() {
     const shutdown = async (signal: string) => {
         console.log(`\n${signal} received, shutting down gracefully...`);
         server.close(async () => {
+            await closeEmailQueue();
             await gracefulShutdown();
             await disconnectRedis();
             process.exit(0);

@@ -16,6 +16,7 @@ import {
     AuthResponse,
 } from './auth.types';
 import { auditService } from '../audit/audit.service';
+import { userService } from '../users/user.service';
 
 /** Converts a JWT expiry string like "7d", "15m", "1h" to seconds */
 export function parseTTL(exp: string): number {
@@ -94,8 +95,25 @@ class AuthService {
             throw new UnauthorizedError('Invalid email or password');
         }
 
+        // Check if account is locked
+        if (user.lockedUntil && user.lockedUntil > new Date()) {
+            auditService.log({
+                userId: user.id,
+                action: 'AUTH.LOGIN_FAILED',
+                resource: 'AUTH',
+                metadata: { email: input.email, reason: 'ACCOUNT_LOCKED' },
+            });
+            throw new ForbiddenError(
+                'Account is locked. Please try again later or contact support.',
+                'ACCOUNT_LOCKED',
+            );
+        }
+
         const valid = await bcrypt.compare(input.password, user.passwordHash);
         if (!valid) {
+            // Record failed login attempt
+            await userService.recordFailedLogin(user.id);
+
             auditService.log({
                 userId: user.id,
                 action: 'AUTH.LOGIN_FAILED',
@@ -117,6 +135,54 @@ class AuthService {
                 'ACCOUNT_SUSPENDED',
             );
         }
+
+        // Check if email is verified
+        if (!user.emailVerified) {
+            auditService.log({
+                userId: user.id,
+                action: 'AUTH.LOGIN_FAILED',
+                resource: 'AUTH',
+                metadata: {
+                    email: input.email,
+                    reason: 'EMAIL_NOT_VERIFIED',
+                },
+            });
+            throw new UnauthorizedError(
+                'Please verify your email before logging in',
+                'EMAIL_NOT_VERIFIED',
+            );
+        }
+
+        // If 2FA is enabled, require TOTP token
+        if (user.totpEnabled) {
+            if (!input.totpToken) {
+                auditService.log({
+                    userId: user.id,
+                    action: 'AUTH.2FA_REQUIRED',
+                    resource: 'AUTH',
+                    metadata: { email: input.email },
+                });
+                throw new ForbiddenError('2FA token required', '2FA_REQUIRED');
+            }
+
+            // Validate TOTP token
+            const totpValid = await userService.validateTOTP(user.id, {
+                token: input.totpToken,
+            });
+
+            if (!totpValid) {
+                auditService.log({
+                    userId: user.id,
+                    action: 'AUTH.LOGIN_FAILED',
+                    resource: 'AUTH',
+                    metadata: { email: input.email, reason: 'INVALID_TOTP' },
+                });
+                throw new UnauthorizedError('Invalid 2FA token');
+            }
+        }
+
+        // Record successful login
+        await userService.recordSuccessfulLogin(user.id);
 
         const tokens = this.generateTokens(user.id, user.email);
 

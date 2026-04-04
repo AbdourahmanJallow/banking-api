@@ -11,10 +11,19 @@ vi.mock('../../src/lib/prisma', () => ({
         user: {
             findUnique: vi.fn(),
             create: vi.fn(),
+            update: vi.fn(),
         },
         auditLog: {
             create: vi.fn().mockResolvedValue({}),
         },
+    },
+}));
+
+vi.mock('../../src/modules/users/user.service', () => ({
+    userService: {
+        recordFailedLogin: vi.fn().mockResolvedValue(undefined),
+        recordSuccessfulLogin: vi.fn().mockResolvedValue(undefined),
+        validateTOTP: vi.fn().mockResolvedValue(true),
     },
 }));
 
@@ -51,6 +60,7 @@ import { redisService } from '../../src/config/redis';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { authService, parseTTL } from '../../src/modules/auth/auth.service';
+import { userService } from '../../src/modules/users/user.service';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -62,6 +72,10 @@ const mockUser = {
     status: 'ACTIVE',
     phone: null,
     createdAt: new Date(),
+    emailVerified: true, // ← Required for new login security
+    lockedUntil: null,
+    totpEnabled: false,
+    failedLoginAttempts: 0,
 };
 
 // ── parseTTL ──────────────────────────────────────────────────────────────────

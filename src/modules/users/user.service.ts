@@ -27,6 +27,17 @@ import {
     ConflictError,
 } from '../../utils/AppError';
 import { auditService } from '../audit/audit.service';
+import {
+    queueVerificationEmail,
+    queuePasswordResetEmail,
+    queue2FAEnabledEmail,
+    queue2FABackupCodesEmail,
+    queueAccountLockedEmail,
+    queueKYCSubmittedEmail,
+    queueKYCApprovedEmail,
+    queueKYCRejectedEmail,
+    queueWelcomeEmail,
+} from '../notifications/notification.queue';
 
 class UserService {
     private readonly SALT_ROUNDS = 12;
@@ -137,8 +148,14 @@ class UserService {
 
         await userRepository.setEmailVerificationToken(userId, token);
 
-        // TODO: Send verification email with token
-        // await notificationService.sendVerificationEmail(user.email, token);
+        // Queue verification email
+        const verificationUrl = `${process.env.APP_URL || 'http://localhost:3000'}/auth/verify-email?token=${token}`;
+        await queueVerificationEmail(
+            user.email,
+            user.fullName || 'User',
+            verificationUrl,
+            '24 hours',
+        );
 
         auditService.log({
             userId,
@@ -193,8 +210,9 @@ class UserService {
 
         await userRepository.setPasswordResetToken(user.id, token);
 
-        // TODO: Send password reset email with token
-        // await notificationService.sendPasswordResetEmail(user.email, token);
+        // Queue password reset email
+        const resetUrl = `${process.env.APP_URL || 'http://localhost:3000'}/auth/reset-password?token=${token}`;
+        await queuePasswordResetEmail(user.email, resetUrl, '1 hour');
 
         auditService.log({
             userId: user.id,
@@ -302,6 +320,13 @@ class UserService {
         // Confirmed, enable 2FA
         await userRepository.enableTOTP(userId);
 
+        // Queue 2FA enabled email
+        await queue2FAEnabledEmail(user.email);
+
+        // Generate and queue backup codes email
+        const backupCodes = this.generateBackupCodes();
+        await queue2FABackupCodesEmail(user.email, backupCodes);
+
         auditService.log({
             userId,
             action: 'USER.2FA_ENABLED',
@@ -395,8 +420,8 @@ class UserService {
                 metadata: { reason: 'FAILED_LOGIN_ATTEMPTS' },
             });
 
-            // TODO: Send account locked notification email
-            // await notificationService.sendAccountLockedEmail(user.email);
+            // Queue account locked notification email
+            await queueAccountLockedEmail(user.email);
         }
     }
 
@@ -422,6 +447,9 @@ class UserService {
         }
 
         const updated = await userRepository.submitKYC(userId, input);
+
+        // Queue KYC submitted email
+        await queueKYCSubmittedEmail(user.email, 'PENDING');
 
         auditService.log({
             userId,
@@ -453,15 +481,18 @@ class UserService {
 
         const updated = await userRepository.approveKYC(userId);
 
+        // Queue KYC approved email
+        await queueKYCApprovedEmail(
+            user.email,
+            updated.accountTier || 'STANDARD',
+        );
+
         auditService.log({
             userId,
             action: 'ADMIN.KYC_APPROVED',
             resource: 'USER',
             resourceId: userId,
         });
-
-        // TODO: Send KYC approved email
-        // await notificationService.sendKYCApprovedEmail(user.email);
 
         return this.sanitizeUser(updated);
     }
@@ -473,6 +504,9 @@ class UserService {
 
         const updated = await userRepository.rejectKYC(userId, reason);
 
+        // Queue KYC rejected email
+        await queueKYCRejectedEmail(user.email, reason);
+
         auditService.log({
             userId,
             action: 'ADMIN.KYC_REJECTED',
@@ -480,9 +514,6 @@ class UserService {
             resourceId: userId,
             metadata: { reason },
         });
-
-        // TODO: Send KYC rejected email
-        // await notificationService.sendKYCRejectedEmail(user.email, reason);
 
         return this.sanitizeUser(updated);
     }
