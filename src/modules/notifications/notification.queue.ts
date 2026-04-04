@@ -23,15 +23,38 @@ export interface EmailJob {
 
 /**
  * Redis connection configuration
+ * Parses Redis URL and handles development and production scenarios
  */
-const redisUrl = new URL(config.redis.url);
-const redisConnection = {
-    host: redisUrl.hostname,
-    port: Number(redisUrl.port || 6379),
-    username: redisUrl.username || undefined,
-    password: redisUrl.password || undefined,
-    tls: redisUrl.protocol === 'rediss:' ? {} : undefined,
-};
+function createRedisConnection() {
+    const redisUrl = new URL(config.redis.url);
+
+    const connection: {
+        host: string;
+        port: number;
+        username?: string;
+        password?: string;
+        tls?: any;
+    } = {
+        host: redisUrl.hostname,
+        port: Number(redisUrl.port || 6379),
+    };
+
+    if (redisUrl.username) {
+        connection.username = redisUrl.username;
+    }
+
+    if (redisUrl.password) {
+        connection.password = redisUrl.password;
+    }
+
+    if (redisUrl.protocol === 'rediss:') {
+        connection.tls = {};
+    }
+
+    return connection;
+}
+
+const redisConnection = createRedisConnection();
 
 /**
  * Email queue
