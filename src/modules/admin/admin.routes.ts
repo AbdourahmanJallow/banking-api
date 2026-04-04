@@ -5,6 +5,8 @@ import {
     listUsers,
     setUserStatus,
     getTransactions,
+    getFlaggedTransactions,
+    reviewFlaggedTransaction,
     getAuditLogs,
     getUserActivity,
     getSystemHealth,
@@ -29,6 +31,8 @@ router.get('/users/:userId/activity', getUserActivity);
 
 // Monitoring
 router.get('/transactions', getTransactions);
+router.get('/transactions/flagged', getFlaggedTransactions);
+router.patch('/transactions/:transactionId/review', reviewFlaggedTransaction);
 router.get('/audit-logs', getAuditLogs);
 
 export { router as adminRouter };

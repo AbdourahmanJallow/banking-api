@@ -4,6 +4,7 @@ import { transactionRepository } from './transaction.repository';
 import { accountRepository } from '../accounts/account.repository';
 import { ledgerService } from '../ledger/ledger.service';
 import { idempotencyService, IdempotencyResult } from '../../utils/idempotency';
+import { fraudDetectionService } from './fraud-detection.service';
 import {
     TransferInput,
     DepositInput,
@@ -67,6 +68,16 @@ class TransactionService {
             if (toAccount.status !== 'ACTIVE')
                 throw new BadRequestError('Destination account is not active');
 
+            const fraudAssessment = fraudDetectionService.assessRisk({
+                type: TransactionType.TRANSFER,
+                amount,
+                currency,
+                occurredAt: new Date(),
+                fromAccountCreatedAt: fromAccount.createdAt,
+                toAccountCreatedAt: toAccount.createdAt,
+                isCrossUserTransfer: fromAccount.userId !== toAccount.userId,
+            });
+
             const transaction = await transactionRepository.create(
                 {
                     reference: this.generateReference(),
@@ -74,6 +85,13 @@ class TransactionService {
                     amount,
                     currency,
                     status: TransactionStatus.PENDING,
+                    riskScore: fraudAssessment.riskScore,
+                    riskLevel: fraudAssessment.riskLevel,
+                    isFlagged: fraudAssessment.isFlagged,
+                    fraudReasons: fraudAssessment.reasons,
+                    fraudReviewStatus: fraudAssessment.isFlagged
+                        ? 'PENDING_REVIEW'
+                        : null,
                 },
                 tx,
             );
@@ -112,6 +130,14 @@ class TransactionService {
             if (account.status !== 'ACTIVE')
                 throw new BadRequestError('Account is not active');
 
+            const fraudAssessment = fraudDetectionService.assessRisk({
+                type: TransactionType.DEPOSIT,
+                amount,
+                currency,
+                occurredAt: new Date(),
+                toAccountCreatedAt: account.createdAt,
+            });
+
             const transaction = await transactionRepository.create(
                 {
                     reference: this.generateReference(),
@@ -119,6 +145,13 @@ class TransactionService {
                     amount,
                     currency,
                     status: TransactionStatus.PENDING,
+                    riskScore: fraudAssessment.riskScore,
+                    riskLevel: fraudAssessment.riskLevel,
+                    isFlagged: fraudAssessment.isFlagged,
+                    fraudReasons: fraudAssessment.reasons,
+                    fraudReviewStatus: fraudAssessment.isFlagged
+                        ? 'PENDING_REVIEW'
+                        : null,
                 },
                 tx,
             );
@@ -157,6 +190,14 @@ class TransactionService {
             if (account.status !== 'ACTIVE')
                 throw new BadRequestError('Account is not active');
 
+            const fraudAssessment = fraudDetectionService.assessRisk({
+                type: TransactionType.WITHDRAWAL,
+                amount,
+                currency,
+                occurredAt: new Date(),
+                fromAccountCreatedAt: account.createdAt,
+            });
+
             const transaction = await transactionRepository.create(
                 {
                     reference: this.generateReference(),
@@ -164,6 +205,13 @@ class TransactionService {
                     amount,
                     currency,
                     status: TransactionStatus.PENDING,
+                    riskScore: fraudAssessment.riskScore,
+                    riskLevel: fraudAssessment.riskLevel,
+                    isFlagged: fraudAssessment.isFlagged,
+                    fraudReasons: fraudAssessment.reasons,
+                    fraudReviewStatus: fraudAssessment.isFlagged
+                        ? 'PENDING_REVIEW'
+                        : null,
                 },
                 tx,
             );

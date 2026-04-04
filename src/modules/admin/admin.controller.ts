@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { adminService } from './admin.service';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { sendSuccess, sendPaginated } from '../../utils/response';
+import { UnauthorizedError } from '../../utils/AppError';
 import { z } from 'zod';
 
 export const getDashboard = asyncHandler(
@@ -27,6 +28,13 @@ export const getTransactions = asyncHandler(
 
         const status = req.query.status as string | undefined;
         const type = req.query.type as string | undefined;
+        const flagged =
+            req.query.flagged !== undefined
+                ? String(req.query.flagged).toLowerCase() === 'true'
+                : undefined;
+        const fraudReviewStatus = req.query.fraudReviewStatus as
+            | string
+            | undefined;
 
         const minAmount = req.query.minAmount
             ? Number(req.query.minAmount)
@@ -48,6 +56,8 @@ export const getTransactions = asyncHandler(
                 limit,
                 status,
                 type,
+                flagged,
+                fraudReviewStatus,
                 minAmount,
                 maxAmount,
                 startDate,
@@ -55,6 +65,42 @@ export const getTransactions = asyncHandler(
             });
 
         sendPaginated(res, transactions, total, page, limit);
+    },
+);
+
+export const getFlaggedTransactions = asyncHandler(
+    async (req: Request, res: Response) => {
+        const page = Number(req.query.page) || 1;
+        const limit = Math.min(Number(req.query.limit) || 50, 200);
+
+        const { transactions, total } =
+            await adminService.listFlaggedTransactions(page, limit);
+
+        sendPaginated(res, transactions, total, page, limit);
+    },
+);
+
+export const reviewFlaggedTransaction = asyncHandler(
+    async (req: Request, res: Response) => {
+        if (!req.user) {
+            throw new UnauthorizedError();
+        }
+
+        const { action, note } = z
+            .object({
+                action: z.enum(['APPROVE', 'REJECT']),
+                note: z.string().max(500).optional(),
+            })
+            .parse(req.body);
+
+        const result = await adminService.reviewFlaggedTransaction({
+            transactionId: req.params.transactionId as string,
+            action,
+            note,
+            reviewerId: req.user.userId,
+        });
+
+        sendSuccess(res, result, 'Fraud review decision recorded');
     },
 );
 

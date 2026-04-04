@@ -86,6 +86,14 @@ model Transaction {
   amount    Float
   currency  String   @default("GMD")
   status    String
+  riskScore Int      @default(0)
+  riskLevel String   @default("LOW")
+  isFlagged Boolean  @default(false)
+  fraudReasons String[] @default([])
+  fraudReviewStatus String? // PENDING_REVIEW, APPROVED, REJECTED
+  fraudReviewNote String?
+  fraudReviewedBy String?
+  fraudReviewedAt DateTime?
   createdAt DateTime @default(now())
 
   ledgerEntries     LedgerEntry[]
@@ -93,6 +101,9 @@ model Transaction {
 
   @@index([status])
   @@index([createdAt])
+  @@index([isFlagged])
+  @@index([fraudReviewStatus])
+  @@index([riskScore])
 }
 
 model LedgerEntry {

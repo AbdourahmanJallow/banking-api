@@ -19,10 +19,19 @@ interface TransactionFilter {
     limit?: number;
     status?: string;
     type?: string;
+    flagged?: boolean;
+    fraudReviewStatus?: string;
     minAmount?: number;
     maxAmount?: number;
     startDate?: Date;
     endDate?: Date;
+}
+
+interface FraudReviewInput {
+    transactionId: string;
+    action: 'APPROVE' | 'REJECT';
+    note?: string;
+    reviewerId: string;
 }
 
 interface AuditLogFilter {
@@ -77,14 +86,12 @@ class AdminService {
             }),
         ]);
 
-        // Count transactions flagged as suspicious (would be from risk scoring)
+        // Count transactions flagged as suspicious
         const suspiciousTransactions = await prisma.transaction.count({
             where: {
-                metadata: {
-                    path: ['riskScore'],
-                    gte: 70, // High risk score
-                },
-            } as any,
+                isFlagged: true,
+                fraudReviewStatus: 'PENDING_REVIEW',
+            },
         });
 
         return {
@@ -134,6 +141,10 @@ class AdminService {
 
         if (filter.status) whereClause.status = filter.status;
         if (filter.type) whereClause.type = filter.type;
+        if (typeof filter.flagged === 'boolean')
+            whereClause.isFlagged = filter.flagged;
+        if (filter.fraudReviewStatus)
+            whereClause.fraudReviewStatus = filter.fraudReviewStatus;
         if (filter.minAmount || filter.maxAmount) {
             whereClause.amount = {};
             if (filter.minAmount) whereClause.amount.gte = filter.minAmount;
@@ -158,6 +169,11 @@ class AdminService {
                     amount: true,
                     currency: true,
                     status: true,
+                    riskScore: true,
+                    riskLevel: true,
+                    isFlagged: true,
+                    fraudReviewStatus: true,
+                    fraudReasons: true,
                     createdAt: true,
                 },
             }),
@@ -165,6 +181,110 @@ class AdminService {
         ]);
 
         return { transactions, total, page, limit };
+    }
+
+    async listFlaggedTransactions(page = 1, limit = 50) {
+        const skip = (page - 1) * limit;
+
+        const [transactions, total] = await prisma.$transaction([
+            prisma.transaction.findMany({
+                skip,
+                take: limit,
+                where: {
+                    isFlagged: true,
+                },
+                orderBy: [{ riskScore: 'desc' }, { createdAt: 'desc' }],
+                select: {
+                    id: true,
+                    reference: true,
+                    type: true,
+                    amount: true,
+                    currency: true,
+                    status: true,
+                    riskScore: true,
+                    riskLevel: true,
+                    fraudReasons: true,
+                    fraudReviewStatus: true,
+                    fraudReviewNote: true,
+                    fraudReviewedBy: true,
+                    fraudReviewedAt: true,
+                    createdAt: true,
+                },
+            }),
+            prisma.transaction.count({
+                where: {
+                    isFlagged: true,
+                },
+            }),
+        ]);
+
+        return { transactions, total, page, limit };
+    }
+
+    async reviewFlaggedTransaction(input: FraudReviewInput) {
+        const { transactionId, action, note, reviewerId } = input;
+
+        const transaction = await prisma.transaction.findUnique({
+            where: { id: transactionId },
+            select: {
+                id: true,
+                isFlagged: true,
+                fraudReviewStatus: true,
+                reference: true,
+                riskScore: true,
+            },
+        });
+
+        if (!transaction) throw new NotFoundError('Transaction not found');
+        if (!transaction.isFlagged)
+            throw new AppError('Transaction is not flagged for review', 400);
+        if (
+            transaction.fraudReviewStatus &&
+            transaction.fraudReviewStatus !== 'PENDING_REVIEW'
+        ) {
+            throw new AppError('Transaction review already completed', 409);
+        }
+
+        const fraudReviewStatus =
+            action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+
+        const updated = await prisma.transaction.update({
+            where: { id: transactionId },
+            data: {
+                fraudReviewStatus,
+                fraudReviewNote: note ?? null,
+                fraudReviewedBy: reviewerId,
+                fraudReviewedAt: new Date(),
+            },
+            select: {
+                id: true,
+                reference: true,
+                status: true,
+                riskScore: true,
+                riskLevel: true,
+                isFlagged: true,
+                fraudReviewStatus: true,
+                fraudReviewNote: true,
+                fraudReviewedBy: true,
+                fraudReviewedAt: true,
+            },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                userId: reviewerId,
+                action: `FRAUD_REVIEW.${fraudReviewStatus}`,
+                resource: 'TRANSACTION',
+                resourceId: transactionId,
+                metadata: {
+                    reference: transaction.reference,
+                    riskScore: transaction.riskScore,
+                    note: note ?? null,
+                },
+            },
+        });
+
+        return updated;
     }
 
     async getAuditLogs(filter: AuditLogFilter) {

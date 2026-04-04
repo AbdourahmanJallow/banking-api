@@ -13,6 +13,11 @@ class TransactionRepository {
             amount: number;
             currency: string;
             status: string;
+            riskScore?: number;
+            riskLevel?: string;
+            isFlagged?: boolean;
+            fraudReasons?: string[];
+            fraudReviewStatus?: string | null;
         },
         tx?: PrismaTx,
     ) {
