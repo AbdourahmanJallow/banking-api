@@ -9,10 +9,7 @@ import type {
     AccountStatement,
 } from './account.types';
 
-// ═══════════════════════════════════════════════════════════════════════════
 // ACCOUNT CORE REPOSITORY
-// ═══════════════════════════════════════════════════════════════════════════
-
 class AccountRepository {
     private client(tx?: PrismaTx) {
         return tx ?? prisma;
@@ -73,10 +70,6 @@ class AccountRepository {
         return this.client(tx).account.deleteMany({ where: { userId } });
     }
 }
-
-// ═══════════════════════════════════════════════════════════════════════════
-// ACCOUNT FEATURES REPOSITORIES
-// ═══════════════════════════════════════════════════════════════════════════
 
 class BeneficiaryRepository {
     create(accountId: string, data: CreateBeneficiaryInput, tx?: PrismaTx) {
@@ -254,10 +247,6 @@ class StatementRepository {
         return (client as any).accountStatement.count({ where: { accountId } });
     }
 }
-
-// ═══════════════════════════════════════════════════════════════════════════
-// EXPORTS
-// ═══════════════════════════════════════════════════════════════════════════
 
 export const accountRepository = new AccountRepository();
 export const beneficiaryRepository = new BeneficiaryRepository();

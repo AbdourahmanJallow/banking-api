@@ -3,7 +3,7 @@ import { authService } from './auth.service';
 import { RegisterSchema, LoginSchema, RefreshTokenSchema } from './auth.types';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { sendSuccess, sendCreated, sendNoContent } from '../../utils/response';
-import { AppError } from '../../utils/AppError';
+import { UnauthorizedError, BadRequestError } from '../../utils/AppError';
 
 export const register = asyncHandler(async (req: Request, res: Response) => {
     const input = RegisterSchema.parse(req.body);
@@ -30,7 +30,7 @@ export const refresh = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const logout = asyncHandler(async (req: Request, res: Response) => {
-    if (!req.user) throw AppError.unauthorized();
+    if (!req.user) throw new UnauthorizedError();
 
     const token = req.headers.authorization?.split(' ')[1];
     if (token) {
@@ -41,7 +41,7 @@ export const logout = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const me = asyncHandler(async (req: Request, res: Response) => {
-    if (!req.user) throw AppError.unauthorized();
+    if (!req.user) throw new UnauthorizedError();
 
     sendSuccess(res, req.user);
 });

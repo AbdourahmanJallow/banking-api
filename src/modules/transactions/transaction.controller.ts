@@ -7,7 +7,7 @@ import {
 } from './transaction.types';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { sendCreated, sendSuccess, sendPaginated } from '../../utils/response';
-import { AppError } from '../../utils/AppError';
+import { UnauthorizedError, BadRequestError } from '../../utils/AppError';
 
 /** Sets the replay header and chooses 200 vs 201 based on whether the
  *  idempotency cache was hit. */
@@ -25,7 +25,7 @@ function sendTransaction(
 }
 
 export const transfer = asyncHandler(async (req: Request, res: Response) => {
-    if (!req.user) throw AppError.unauthorized();
+    if (!req.user) throw new UnauthorizedError();
 
     const input = TransferSchema.parse(req.body);
 
@@ -38,7 +38,7 @@ export const transfer = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const deposit = asyncHandler(async (req: Request, res: Response) => {
-    if (!req.user) throw AppError.unauthorized();
+    if (!req.user) throw new UnauthorizedError();
 
     const input = DepositSchema.parse(req.body);
 
@@ -51,7 +51,7 @@ export const deposit = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const withdrawal = asyncHandler(async (req: Request, res: Response) => {
-    if (!req.user) throw AppError.unauthorized();
+    if (!req.user) throw new UnauthorizedError();
 
     const input = WithdrawalSchema.parse(req.body);
 
@@ -65,7 +65,7 @@ export const withdrawal = asyncHandler(async (req: Request, res: Response) => {
 
 export const getTransaction = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const tx = await transactionService.getTransaction(
             req.params.id as string,
@@ -78,7 +78,7 @@ export const getTransaction = asyncHandler(
 
 export const getAccountTransactions = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const page = Number(req.query.page) || 1;
 

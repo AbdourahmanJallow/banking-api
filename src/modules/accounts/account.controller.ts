@@ -11,11 +11,11 @@ import {
 } from './account.types';
 import { asyncHandler } from '../../utils/asyncHandler';
 import { sendSuccess, sendCreated } from '../../utils/response';
-import { AppError } from '../../utils/AppError';
+import { BadRequestError, UnauthorizedError } from '../../utils/AppError';
 
 export const createAccount = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const input = CreateAccountSchema.parse(req.body);
 
@@ -30,7 +30,7 @@ export const createAccount = asyncHandler(
 
 export const getMyAccounts = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const accounts = await accountService.getUserAccounts(req.user.userId);
 
@@ -39,7 +39,7 @@ export const getMyAccounts = asyncHandler(
 );
 
 export const getAccount = asyncHandler(async (req: Request, res: Response) => {
-    if (!req.user) throw AppError.unauthorized();
+    if (!req.user) throw new UnauthorizedError();
 
     const account = await accountService.getAccount(
         req.params.id as string,
@@ -50,7 +50,7 @@ export const getAccount = asyncHandler(async (req: Request, res: Response) => {
 
 export const updateAccountStatus = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const input = UpdateAccountStatusSchema.parse(req.body);
 
@@ -66,7 +66,7 @@ export const updateAccountStatus = asyncHandler(
 
 export const addBeneficiary = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const input = CreateBeneficiarySchema.parse(req.body);
         const accountId = req.params.accountId as string;
@@ -83,7 +83,7 @@ export const addBeneficiary = asyncHandler(
 
 export const removeBeneficiary = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const beneficiaryId = req.params.beneficiaryId as string;
 
@@ -95,7 +95,7 @@ export const removeBeneficiary = asyncHandler(
 
 export const listBeneficiaries = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const accountId = req.params.accountId as string;
 
@@ -110,7 +110,7 @@ export const listBeneficiaries = asyncHandler(
 
 export const createStandingOrder = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const input = CreateStandingOrderSchema.parse(req.body);
         const accountId = req.params.accountId as string;
@@ -127,7 +127,7 @@ export const createStandingOrder = asyncHandler(
 
 export const pauseStandingOrder = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const orderId = req.params.orderId as string;
 
@@ -139,7 +139,7 @@ export const pauseStandingOrder = asyncHandler(
 
 export const resumeStandingOrder = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const orderId = req.params.orderId as string;
 
@@ -151,7 +151,7 @@ export const resumeStandingOrder = asyncHandler(
 
 export const listStandingOrders = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const accountId = req.params.accountId as string;
 
@@ -166,7 +166,7 @@ export const listStandingOrders = asyncHandler(
 
 export const updatePreferences = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const input = AccountPreferencesSchema.partial().parse(req.body);
         const accountId = req.params.accountId as string;
@@ -187,7 +187,7 @@ export const updatePreferences = asyncHandler(
 
 export const getPreferences = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const accountId = req.params.accountId as string;
 
@@ -202,7 +202,7 @@ export const getPreferences = asyncHandler(
 
 export const setTransactionLimits = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const input = TransactionLimitsSchema.parse(req.body);
         const accountId = req.params.accountId as string;
@@ -219,7 +219,7 @@ export const setTransactionLimits = asyncHandler(
 
 export const getTransactionLimits = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const accountId = req.params.accountId as string;
 
@@ -233,7 +233,7 @@ export const getTransactionLimits = asyncHandler(
 );
 
 export const createAlert = asyncHandler(async (req: Request, res: Response) => {
-    if (!req.user) throw AppError.unauthorized();
+    if (!req.user) throw new UnauthorizedError();
 
     const input = CreateAlertSchema.parse(req.body);
     const accountId = req.params.accountId as string;
@@ -249,7 +249,7 @@ export const createAlert = asyncHandler(async (req: Request, res: Response) => {
 
 export const disableAlert = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const alertId = req.params.alertId as string;
 
@@ -260,7 +260,7 @@ export const disableAlert = asyncHandler(
 );
 
 export const listAlerts = asyncHandler(async (req: Request, res: Response) => {
-    if (!req.user) throw AppError.unauthorized();
+    if (!req.user) throw new UnauthorizedError();
 
     const accountId = req.params.accountId as string;
 
@@ -271,11 +271,11 @@ export const listAlerts = asyncHandler(async (req: Request, res: Response) => {
 
 export const generateStatement = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const { startDate, endDate } = req.body;
         if (!startDate || !endDate)
-            throw AppError.badRequest(
+            throw new BadRequestError(
                 'startDate and endDate are required',
                 'MISSING_DATE_PARAMS',
             );
@@ -295,7 +295,7 @@ export const generateStatement = asyncHandler(
 
 export const listStatements = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const accountId = req.params.accountId as string;
         const page = Math.max(1, parseInt(req.query.page as string) || 1);
@@ -314,13 +314,13 @@ export const listStatements = asyncHandler(
 
 export const getSpendingByCategory = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const accountId = req.params.accountId as string;
         const { startDate, endDate } = req.query;
 
         if (!startDate || !endDate)
-            throw AppError.badRequest(
+            throw new BadRequestError(
                 'startDate and endDate query parameters are required',
                 'MISSING_DATE_PARAMS',
             );
@@ -338,7 +338,7 @@ export const getSpendingByCategory = asyncHandler(
 
 export const getMonthlySpendingTrend = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const accountId = req.params.accountId as string;
         const months = Math.min(
@@ -358,7 +358,7 @@ export const getMonthlySpendingTrend = asyncHandler(
 
 export const getTopMerchants = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const accountId = req.params.accountId as string;
         const limit = Math.min(50, parseInt(req.query.limit as string) || 5);

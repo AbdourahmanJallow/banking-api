@@ -18,10 +18,10 @@ import {
     sendNoContent,
     sendPaginated,
 } from '../../utils/response';
-import { AppError } from '../../utils/AppError';
+import { UnauthorizedError, BadRequestError } from '../../utils/AppError';
 
 export const getMe = asyncHandler(async (req: Request, res: Response) => {
-    if (!req.user) throw AppError.unauthorized();
+    if (!req.user) throw new UnauthorizedError();
 
     const user = await userService.getProfile(req.user.userId);
 
@@ -29,7 +29,7 @@ export const getMe = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const updateMe = asyncHandler(async (req: Request, res: Response) => {
-    if (!req.user) throw AppError.unauthorized();
+    if (!req.user) throw new UnauthorizedError();
 
     const input = UpdateUserSchema.parse(req.body);
 
@@ -40,7 +40,7 @@ export const updateMe = asyncHandler(async (req: Request, res: Response) => {
 
 export const changePassword = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const input = ChangePasswordSchema.parse(req.body);
 
@@ -74,7 +74,7 @@ export const deactivateUser = asyncHandler(
 
 export const sendVerificationEmail = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         await userService.sendVerificationEmail(req.user.userId);
 
@@ -114,7 +114,7 @@ export const resetPassword = asyncHandler(
 );
 
 export const enableTOTP = asyncHandler(async (req: Request, res: Response) => {
-    if (!req.user) throw AppError.unauthorized();
+    if (!req.user) throw new UnauthorizedError();
 
     const input = EnableTOTPSchema.parse(req.body);
 
@@ -124,7 +124,7 @@ export const enableTOTP = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const confirmTOTP = asyncHandler(async (req: Request, res: Response) => {
-    if (!req.user) throw AppError.unauthorized();
+    if (!req.user) throw new UnauthorizedError();
 
     const input = ConfirmTOTPSchema.parse(req.body);
 
@@ -135,7 +135,7 @@ export const confirmTOTP = asyncHandler(async (req: Request, res: Response) => {
 
 export const validateTOTP = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const input = ValidateTOTPSchema.parse(req.body);
 
@@ -146,7 +146,7 @@ export const validateTOTP = asyncHandler(
 );
 
 export const disableTOTP = asyncHandler(async (req: Request, res: Response) => {
-    if (!req.user) throw AppError.unauthorized();
+    if (!req.user) throw new UnauthorizedError();
 
     const input = DisableTOTPSchema.parse(req.body);
 
@@ -156,7 +156,7 @@ export const disableTOTP = asyncHandler(async (req: Request, res: Response) => {
 });
 
 export const submitKYC = asyncHandler(async (req: Request, res: Response) => {
-    if (!req.user) throw AppError.unauthorized();
+    if (!req.user) throw new UnauthorizedError();
 
     const input = SubmitKYCSchema.parse(req.body);
 
@@ -167,7 +167,7 @@ export const submitKYC = asyncHandler(async (req: Request, res: Response) => {
 
 export const getKYCStatus = asyncHandler(
     async (req: Request, res: Response) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const status = await userService.getKYCStatus(req.user.userId);
 
@@ -187,7 +187,7 @@ export const rejectKYC = asyncHandler(async (req: Request, res: Response) => {
     const userId = req.params.id as string;
     const { reason } = req.body;
 
-    if (!reason) throw AppError.badRequest('Rejection reason is required');
+    if (!reason) throw new BadRequestError('Rejection reason is required');
 
     const user = await userService.rejectKYC(userId, reason);
 

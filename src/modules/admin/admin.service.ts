@@ -1,6 +1,6 @@
 import prisma from '../../lib/prisma';
 import { accountRepository } from '../accounts/account.repository';
-import { AppError } from '../../utils/AppError';
+import { AppError, NotFoundError } from '../../utils/AppError';
 
 class AdminService {
     async getDashboardStats() {
@@ -42,7 +42,7 @@ class AdminService {
     async setUserStatus(userId: string, status: string) {
         const user = await prisma.user.findUnique({ where: { id: userId } });
 
-        if (!user) throw AppError.notFound('User not found');
+        if (!user) throw new NotFoundError('User not found');
 
         // If the user is being suspended or deactivated, atomically apply the
         // same status to all their accounts so no account stays ACTIVE while

@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
-import { AppError } from '../utils/AppError';
+import { AppError, UnauthorizedError, ForbiddenError } from '../utils/AppError';
 import { asyncHandler } from '../utils/asyncHandler';
 import { redisService } from '../config/redis';
 
@@ -30,7 +30,7 @@ export const authenticate = asyncHandler(
         const authHeader = req.headers.authorization;
 
         if (!authHeader?.startsWith('Bearer ')) {
-            throw AppError.unauthorized('No token provided');
+            throw new UnauthorizedError('No token provided');
         }
 
         const token = authHeader.split(' ')[1];
@@ -40,14 +40,14 @@ export const authenticate = asyncHandler(
             const blacklisted = await redisService.isTokenBlacklisted(token);
 
             if (blacklisted)
-                throw AppError.unauthorized('Token has been revoked');
+                throw new UnauthorizedError('Token has been revoked');
         }
 
         let decoded: JwtPayload;
         try {
             decoded = jwt.verify(token, config.jwt.secret) as JwtPayload;
         } catch {
-            throw AppError.unauthorized('Invalid or expired token');
+            throw new UnauthorizedError('Invalid or expired token');
         }
 
         req.user = decoded;
@@ -60,12 +60,12 @@ export const authenticate = asyncHandler(
  */
 export const requireOwnership = (getResourceUserId: (req: Request) => string) =>
     asyncHandler(async (req: Request, _res: Response, next: NextFunction) => {
-        if (!req.user) throw AppError.unauthorized();
+        if (!req.user) throw new UnauthorizedError();
 
         const resourceUserId = getResourceUserId(req);
 
         if (req.user.userId !== resourceUserId) {
-            throw AppError.forbidden('You do not have access to this resource');
+            throw new ForbiddenError('You do not have access to this resource');
         }
 
         next();

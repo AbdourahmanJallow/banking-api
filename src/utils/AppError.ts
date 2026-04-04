@@ -15,34 +15,74 @@ export class AppError extends Error {
         this.isOperational = true;
         Error.captureStackTrace(this, this.constructor);
     }
+}
 
-    // convenience factories
-
-    static badRequest(message: string, code = 'BAD_REQUEST') {
-        return new AppError(message, 400, code);
+/**
+ * 400 Bad Request - The request is malformed or contains invalid data
+ */
+export class BadRequestError extends AppError {
+    constructor(message: string, code = 'BAD_REQUEST') {
+        super(message, 400, code);
+        this.name = 'BadRequestError';
     }
+}
 
-    static unauthorized(message = 'Unauthorized', code = 'UNAUTHORIZED') {
-        return new AppError(message, 401, code);
+/**
+ * 401 Unauthorized - Authentication is missing or invalid
+ */
+export class UnauthorizedError extends AppError {
+    constructor(message = 'Unauthorized', code = 'UNAUTHORIZED') {
+        super(message, 401, code);
+        this.name = 'UnauthorizedError';
     }
+}
 
-    static forbidden(message = 'Forbidden', code = 'FORBIDDEN') {
-        return new AppError(message, 403, code);
+/**
+ * 403 Forbidden - Authentication is valid but user lacks permission
+ */
+export class ForbiddenError extends AppError {
+    constructor(message = 'Forbidden', code = 'FORBIDDEN') {
+        super(message, 403, code);
+        this.name = 'ForbiddenError';
     }
+}
 
-    static notFound(message: string, code = 'NOT_FOUND') {
-        return new AppError(message, 404, code);
+/**
+ * 404 Not Found - The requested resource does not exist
+ */
+export class NotFoundError extends AppError {
+    constructor(message: string, code = 'NOT_FOUND') {
+        super(message, 404, code);
+        this.name = 'NotFoundError';
     }
+}
 
-    static conflict(message: string, code = 'CONFLICT') {
-        return new AppError(message, 409, code);
+/**
+ * 409 Conflict - The request conflicts with the current state
+ */
+export class ConflictError extends AppError {
+    constructor(message: string, code = 'CONFLICT') {
+        super(message, 409, code);
+        this.name = 'ConflictError';
     }
+}
 
-    static unprocessable(message: string, code = 'UNPROCESSABLE') {
-        return new AppError(message, 422, code);
+/**
+ * 422 Unprocessable Entity - The request is well-formed but semantically invalid
+ */
+export class UnprocessableError extends AppError {
+    constructor(message: string, code = 'UNPROCESSABLE') {
+        super(message, 422, code);
+        this.name = 'UnprocessableError';
     }
+}
 
-    static internal(message = 'Internal Server Error') {
-        return new AppError(message, 500, 'INTERNAL_ERROR');
+/**
+ * 500 Internal Server Error - An unexpected server error occurred
+ */
+export class InternalError extends AppError {
+    constructor(message = 'Internal Server Error', code = 'INTERNAL_ERROR') {
+        super(message, 500, code);
+        this.name = 'InternalError';
     }
 }

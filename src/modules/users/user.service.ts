@@ -19,7 +19,13 @@ import {
     TOTPSetupResponse,
     SubmitKYCInput,
 } from './user.types';
-import { AppError } from '../../utils/AppError';
+import {
+    AppError,
+    NotFoundError,
+    BadRequestError,
+    ForbiddenError,
+    ConflictError,
+} from '../../utils/AppError';
 import { auditService } from '../audit/audit.service';
 
 class UserService {
@@ -44,7 +50,7 @@ class UserService {
     async getProfile(userId: string): Promise<UserPublic> {
         const user = await userRepository.findById(userId);
 
-        if (!user) throw AppError.notFound('User not found');
+        if (!user) throw new NotFoundError('User not found');
 
         return this.sanitizeUser(user);
     }
@@ -72,7 +78,7 @@ class UserService {
     ): Promise<void> {
         const user = await userRepository.findById(userId);
 
-        if (!user) throw AppError.notFound('User not found');
+        if (!user) throw new NotFoundError('User not found');
 
         const valid = await bcrypt.compare(
             input.currentPassword,
@@ -80,7 +86,7 @@ class UserService {
         );
 
         if (!valid)
-            throw AppError.badRequest(
+            throw new BadRequestError(
                 'Current password is incorrect',
                 'WRONG_PASSWORD',
             );
@@ -104,7 +110,7 @@ class UserService {
     async deactivateUser(userId: string): Promise<void> {
         const user = await userRepository.findById(userId);
 
-        if (!user) throw AppError.notFound('User not found');
+        if (!user) throw new NotFoundError('User not found');
 
         await prisma.$transaction(async (tx) => {
             await userRepository.deactivate(userId, tx);
@@ -121,10 +127,10 @@ class UserService {
     async sendVerificationEmail(userId: string): Promise<void> {
         const user = await userRepository.findById(userId);
 
-        if (!user) throw AppError.notFound('User not found');
+        if (!user) throw new NotFoundError('User not found');
 
         if (user.emailVerified) {
-            throw AppError.badRequest('Email already verified');
+            throw new BadRequestError('Email already verified');
         }
 
         const token = this.generateToken();
@@ -147,13 +153,13 @@ class UserService {
             input.token,
         );
 
-        if (!user) throw AppError.badRequest('Invalid or expired token');
+        if (!user) throw new BadRequestError('Invalid or expired token');
 
         if (
             user.emailVerificationExpiry &&
             user.emailVerificationExpiry < new Date()
         ) {
-            throw AppError.badRequest('Token has expired');
+            throw new BadRequestError('Token has expired');
         }
 
         const verified = await userRepository.verifyEmail(user.id);
@@ -201,10 +207,10 @@ class UserService {
     async resetPassword(input: ResetPasswordInput): Promise<void> {
         const user = await userRepository.findByPasswordResetToken(input.token);
 
-        if (!user) throw AppError.badRequest('Invalid or expired token');
+        if (!user) throw new BadRequestError('Invalid or expired token');
 
         if (user.passwordResetExpiry && user.passwordResetExpiry < new Date()) {
-            throw AppError.badRequest('Reset token has expired');
+            throw new BadRequestError('Reset token has expired');
         }
 
         const hash = await bcrypt.hash(input.newPassword, this.SALT_ROUNDS);
@@ -225,16 +231,16 @@ class UserService {
     ): Promise<TOTPSetupResponse> {
         const user = await userRepository.findById(userId);
 
-        if (!user) throw AppError.notFound('User not found');
+        if (!user) throw new NotFoundError('User not found');
 
         const valid = await bcrypt.compare(input.password, user.passwordHash);
 
         if (!valid) {
-            throw AppError.badRequest('Password is incorrect');
+            throw new BadRequestError('Password is incorrect');
         }
 
         if (user.totpEnabled) {
-            throw AppError.badRequest('2FA is already enabled');
+            throw new BadRequestError('2FA is already enabled');
         }
 
         // Generate TOTP secret
@@ -271,14 +277,14 @@ class UserService {
     async confirmTOTP(userId: string, input: ConfirmTOTPInput): Promise<void> {
         const user = await userRepository.findById(userId);
 
-        if (!user) throw AppError.notFound('User not found');
+        if (!user) throw new NotFoundError('User not found');
 
         if (!user.totpSecret) {
-            throw AppError.badRequest('TOTP setup not initiated');
+            throw new BadRequestError('TOTP setup not initiated');
         }
 
         if (user.totpEnabled) {
-            throw AppError.badRequest('2FA is already enabled');
+            throw new BadRequestError('2FA is already enabled');
         }
 
         // Verify the token against the stored secret
@@ -290,7 +296,7 @@ class UserService {
         });
 
         if (!verified) {
-            throw AppError.badRequest('Invalid token. Please try again.');
+            throw new BadRequestError('Invalid token. Please try again.');
         }
 
         // Confirmed, enable 2FA
@@ -310,10 +316,10 @@ class UserService {
     ): Promise<boolean> {
         const user = await userRepository.findById(userId);
 
-        if (!user) throw AppError.notFound('User not found');
+        if (!user) throw new NotFoundError('User not found');
 
         if (!user.totpEnabled || !user.totpSecret) {
-            throw AppError.badRequest('2FA is not enabled');
+            throw new BadRequestError('2FA is not enabled');
         }
 
         // Verify the TOTP token
@@ -330,16 +336,16 @@ class UserService {
     async disableTOTP(userId: string, input: DisableTOTPInput): Promise<void> {
         const user = await userRepository.findById(userId);
 
-        if (!user) throw AppError.notFound('User not found');
+        if (!user) throw new NotFoundError('User not found');
 
         const valid = await bcrypt.compare(input.password, user.passwordHash);
 
         if (!valid) {
-            throw AppError.badRequest('Password is incorrect');
+            throw new BadRequestError('Password is incorrect');
         }
 
         if (!user.totpEnabled) {
-            throw AppError.badRequest('2FA is not enabled');
+            throw new BadRequestError('2FA is not enabled');
         }
 
         await userRepository.disableTOTP(userId);
@@ -360,7 +366,7 @@ class UserService {
         if (!user.lockedUntil) return;
 
         if (user.lockedUntil > new Date()) {
-            throw AppError.forbidden(
+            throw new ForbiddenError(
                 'Account is locked. Please try again later.',
                 'ACCOUNT_LOCKED',
             );
@@ -404,7 +410,7 @@ class UserService {
     ): Promise<UserPublic> {
         const user = await userRepository.findById(userId);
 
-        if (!user) throw AppError.notFound('User not found');
+        if (!user) throw new NotFoundError('User not found');
 
         // Check for duplicate national ID
         const existing = await prisma.user.findUnique({
@@ -412,7 +418,7 @@ class UserService {
         });
 
         if (existing && existing.id !== userId) {
-            throw AppError.conflict('National ID already registered');
+            throw new ConflictError('National ID already registered');
         }
 
         const updated = await userRepository.submitKYC(userId, input);
@@ -430,7 +436,7 @@ class UserService {
     async getKYCStatus(userId: string) {
         const user = await userRepository.findById(userId);
 
-        if (!user) throw AppError.notFound('User not found');
+        if (!user) throw new NotFoundError('User not found');
 
         return {
             status: user.kycStatus,
@@ -443,7 +449,7 @@ class UserService {
     async approveKYC(userId: string): Promise<UserPublic> {
         const user = await userRepository.findById(userId);
 
-        if (!user) throw AppError.notFound('User not found');
+        if (!user) throw new NotFoundError('User not found');
 
         const updated = await userRepository.approveKYC(userId);
 
@@ -463,7 +469,7 @@ class UserService {
     async rejectKYC(userId: string, reason: string): Promise<UserPublic> {
         const user = await userRepository.findById(userId);
 
-        if (!user) throw AppError.notFound('User not found');
+        if (!user) throw new NotFoundError('User not found');
 
         const updated = await userRepository.rejectKYC(userId, reason);
 

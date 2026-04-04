@@ -11,7 +11,12 @@ import {
     TransactionType,
     TransactionStatus,
 } from './transaction.types';
-import { AppError } from '../../utils/AppError';
+import {
+    AppError,
+    BadRequestError,
+    NotFoundError,
+    ForbiddenError,
+} from '../../utils/AppError';
 import { auditService } from '../audit/audit.service';
 
 /**
@@ -37,7 +42,7 @@ class TransactionService {
         const { fromAccountId, toAccountId, amount, currency = 'GMD' } = input;
 
         if (fromAccountId === toAccountId)
-            throw AppError.badRequest('Cannot transfer to the same account');
+            throw new BadRequestError('Cannot transfer to the same account');
 
         return prisma.$transaction(async (tx) => {
             // Read both accounts inside the transaction so Postgres can
@@ -48,19 +53,19 @@ class TransactionService {
             ]);
 
             if (!fromAccount)
-                throw AppError.notFound('Source account not found');
+                throw new NotFoundError('Source account not found');
 
             if (fromAccount.userId !== requestingUserId)
-                throw AppError.forbidden('Access denied to source account');
+                throw new ForbiddenError('Access denied to source account');
 
             if (fromAccount.status !== 'ACTIVE')
-                throw AppError.badRequest('Source account is not active');
+                throw new BadRequestError('Source account is not active');
 
             if (!toAccount)
-                throw AppError.notFound('Destination account not found');
+                throw new NotFoundError('Destination account not found');
 
             if (toAccount.status !== 'ACTIVE')
-                throw AppError.badRequest('Destination account is not active');
+                throw new BadRequestError('Destination account is not active');
 
             const transaction = await transactionRepository.create(
                 {
@@ -99,13 +104,13 @@ class TransactionService {
         return prisma.$transaction(async (tx) => {
             const account = await accountRepository.findById(accountId, tx);
 
-            if (!account) throw AppError.notFound('Account not found');
+            if (!account) throw new NotFoundError('Account not found');
 
             if (account.userId !== requestingUserId)
-                throw AppError.forbidden('Access denied');
+                throw new ForbiddenError('Access denied');
 
             if (account.status !== 'ACTIVE')
-                throw AppError.badRequest('Account is not active');
+                throw new BadRequestError('Account is not active');
 
             const transaction = await transactionRepository.create(
                 {
@@ -144,13 +149,13 @@ class TransactionService {
         return prisma.$transaction(async (tx) => {
             const account = await accountRepository.findById(accountId, tx);
 
-            if (!account) throw AppError.notFound('Account not found');
+            if (!account) throw new NotFoundError('Account not found');
 
             if (account.userId !== requestingUserId)
-                throw AppError.forbidden('Access denied');
+                throw new ForbiddenError('Access denied');
 
             if (account.status !== 'ACTIVE')
-                throw AppError.badRequest('Account is not active');
+                throw new BadRequestError('Account is not active');
 
             const transaction = await transactionRepository.create(
                 {
@@ -304,7 +309,7 @@ class TransactionService {
 
     async getTransaction(id: string, requestingUserId: string) {
         const transaction = await transactionRepository.findById(id);
-        if (!transaction) throw AppError.notFound('Transaction not found');
+        if (!transaction) throw new NotFoundError('Transaction not found');
 
         // Verify the requesting user owns at least one of the involved accounts
         const accountIds = transaction.ledgerEntries.map((e) => e.accountId);
@@ -312,7 +317,7 @@ class TransactionService {
             accountIds.map((aid) => accountRepository.findById(aid)),
         );
         const hasAccess = accounts.some((a) => a?.userId === requestingUserId);
-        if (!hasAccess) throw AppError.forbidden('Access denied');
+        if (!hasAccess) throw new ForbiddenError('Access denied');
 
         return transaction;
     }
@@ -324,10 +329,10 @@ class TransactionService {
         limit: number,
     ) {
         const account = await accountRepository.findById(accountId);
-        if (!account) throw AppError.notFound('Account not found');
+        if (!account) throw new NotFoundError('Account not found');
 
         if (account.userId !== requestingUserId)
-            throw AppError.forbidden('Access denied');
+            throw new ForbiddenError('Access denied');
 
         return transactionRepository.findByAccountId(accountId, page, limit);
     }

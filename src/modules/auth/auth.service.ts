@@ -2,7 +2,12 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import prisma from '../../lib/prisma';
 import { config } from '../../config';
-import { AppError } from '../../utils/AppError';
+import {
+    AppError,
+    ConflictError,
+    UnauthorizedError,
+    ForbiddenError,
+} from '../../utils/AppError';
 import { redisService } from '../../config/redis';
 import {
     RegisterInput,
@@ -44,7 +49,7 @@ class AuthService {
         });
 
         if (existing)
-            throw AppError.conflict('Email already in use', 'EMAIL_TAKEN');
+            throw new ConflictError('Email already in use', 'EMAIL_TAKEN');
 
         const passwordHash = await bcrypt.hash(
             input.password,
@@ -86,7 +91,7 @@ class AuthService {
                 resource: 'AUTH',
                 metadata: { email: input.email, reason: 'USER_NOT_FOUND' },
             });
-            throw AppError.unauthorized('Invalid email or password');
+            throw new UnauthorizedError('Invalid email or password');
         }
 
         const valid = await bcrypt.compare(input.password, user.passwordHash);
@@ -97,7 +102,7 @@ class AuthService {
                 resource: 'AUTH',
                 metadata: { email: input.email, reason: 'WRONG_PASSWORD' },
             });
-            throw AppError.unauthorized('Invalid email or password');
+            throw new UnauthorizedError('Invalid email or password');
         }
 
         if (user.status !== 'ACTIVE') {
@@ -107,7 +112,7 @@ class AuthService {
                 resource: 'AUTH',
                 metadata: { email: input.email, reason: 'ACCOUNT_SUSPENDED' },
             });
-            throw AppError.forbidden(
+            throw new ForbiddenError(
                 'Account is suspended',
                 'ACCOUNT_SUSPENDED',
             );
@@ -142,14 +147,14 @@ class AuthService {
         try {
             payload = jwt.verify(token, config.jwt.secret) as typeof payload;
         } catch {
-            throw AppError.unauthorized('Invalid or expired refresh token');
+            throw new UnauthorizedError('Invalid or expired refresh token');
         }
 
         // Reject if the refresh token was revoked on logout
         if (redisService.connected) {
             const stored = await redisService.getRefreshToken(payload.userId);
             if (!stored || stored !== token) {
-                throw AppError.unauthorized('Refresh token has been revoked');
+                throw new UnauthorizedError('Refresh token has been revoked');
             }
         }
 
@@ -158,7 +163,7 @@ class AuthService {
         });
 
         if (!user || user.status !== 'ACTIVE')
-            throw AppError.unauthorized('User not found or inactive');
+            throw new UnauthorizedError('User not found or inactive');
 
         const tokens = this.generateTokens(user.id, user.email);
 

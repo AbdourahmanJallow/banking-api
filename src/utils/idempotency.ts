@@ -1,5 +1,5 @@
 import redisService from './redis';
-import { AppError } from './AppError';
+import { AppError, ConflictError } from './AppError';
 
 const IDEMPOTENCY_PREFIX = 'idempotency:';
 const LOCK_PREFIX = 'idempotency:lock:';
@@ -80,7 +80,7 @@ class IdempotencyService {
 
         if (!lockAcquired) {
             // Another request with this key is already in-flight
-            throw AppError.conflict(
+            throw new ConflictError(
                 'A request with this idempotency key is currently being processed. ' +
                     'Please wait a moment and retry.',
                 'IDEMPOTENCY_PROCESSING',

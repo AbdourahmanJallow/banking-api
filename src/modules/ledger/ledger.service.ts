@@ -2,7 +2,7 @@ import { ledgerRepository } from './ledger.repository';
 import { accountRepository } from '../accounts/account.repository';
 import type { PrismaTx } from '../../lib/prisma';
 import { EntryType } from '../transactions/transaction.types';
-import { AppError } from '../../utils/AppError';
+import { AppError, NotFoundError, BadRequestError } from '../../utils/AppError';
 
 /**
  * Writes double-entry bookkeeping pairs inside the caller's DB transaction.
@@ -27,17 +27,17 @@ class LedgerService {
             accountRepository.findById(toAccountId, tx),
         ]);
 
-        if (!from) throw AppError.notFound('Source account not found');
-        if (!to) throw AppError.notFound('Destination account not found');
+        if (!from) throw new NotFoundError('Source account not found');
+        if (!to) throw new NotFoundError('Destination account not found');
 
         if (from.balance < amount)
-            throw AppError.badRequest(
+            throw new BadRequestError(
                 'Insufficient funds',
                 'INSUFFICIENT_FUNDS',
             );
 
         if (from.currency !== to.currency)
-            throw AppError.badRequest('Currency mismatch', 'CURRENCY_MISMATCH');
+            throw new BadRequestError('Currency mismatch', 'CURRENCY_MISMATCH');
 
         await Promise.all([
             ledgerRepository.createEntry(
@@ -78,7 +78,7 @@ class LedgerService {
         tx: PrismaTx,
     ): Promise<void> {
         const account = await accountRepository.findById(accountId, tx);
-        if (!account) throw AppError.notFound('Account not found');
+        if (!account) throw new NotFoundError('Account not found');
 
         await Promise.all([
             ledgerRepository.createEntry(
@@ -105,10 +105,10 @@ class LedgerService {
         tx: PrismaTx,
     ): Promise<void> {
         const account = await accountRepository.findById(accountId, tx);
-        if (!account) throw AppError.notFound('Account not found');
+        if (!account) throw new NotFoundError('Account not found');
 
         if (account.balance < amount)
-            throw AppError.badRequest(
+            throw new BadRequestError(
                 'Insufficient funds',
                 'INSUFFICIENT_FUNDS',
             );

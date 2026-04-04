@@ -21,7 +21,12 @@ import {
     type TopMerchant,
 } from './account.types';
 import { generateAccountNumber } from '../../utils/generateAccountNumber';
-import { AppError } from '../../utils/AppError';
+import {
+    AppError,
+    NotFoundError,
+    ForbiddenError,
+    BadRequestError,
+} from '../../utils/AppError';
 import { auditService } from '../audit/audit.service';
 
 class AccountService {
@@ -44,7 +49,7 @@ class AccountService {
         // This ensures a deleted user cannot have orphaned accounts.
         const account = await prisma.$transaction(async (tx) => {
             const user = await tx.user.findUnique({ where: { id: userId } });
-            if (!user) throw AppError.notFound('User not found');
+            if (!user) throw new NotFoundError('User not found');
 
             return accountRepository.create(
                 userId,
@@ -71,10 +76,10 @@ class AccountService {
     async getAccount(accountId: string, requestingUserId: string) {
         const account = await accountRepository.findById(accountId);
 
-        if (!account) throw AppError.notFound('Account not found');
+        if (!account) throw new NotFoundError('Account not found');
 
         if (account.userId !== requestingUserId)
-            throw AppError.forbidden('Access denied');
+            throw new ForbiddenError('Access denied');
 
         return account;
     }
@@ -114,10 +119,10 @@ class AccountService {
     ) {
         const account = await accountRepository.findById(accountId);
 
-        if (!account) throw AppError.notFound('Account not found');
+        if (!account) throw new NotFoundError('Account not found');
 
         if (account.userId !== requestingUserId)
-            throw AppError.forbidden('Access denied');
+            throw new ForbiddenError('Access denied');
 
         // Wrap in transaction to ensure consistent state
         const updated = await prisma.$transaction(async (tx) => {
@@ -144,13 +149,13 @@ class AccountService {
     ): Promise<void> {
         const account = await accountRepository.findById(accountId);
 
-        if (!account) throw AppError.notFound('Account not found');
+        if (!account) throw new NotFoundError('Account not found');
 
         if (account.userId !== requestingUserId)
-            throw AppError.forbidden('Access denied');
+            throw new ForbiddenError('Access denied');
 
         if (account.balance > 0)
-            throw AppError.badRequest(
+            throw new BadRequestError(
                 'Cannot delete account with non-zero balance',
                 'NON_ZERO_BALANCE',
             );
@@ -189,7 +194,7 @@ class AccountService {
         // Verify all accounts have zero balance
         const nonZero = accounts.filter((a) => a.balance > 0);
         if (nonZero.length > 0) {
-            throw AppError.badRequest(
+            throw new BadRequestError(
                 `Cannot delete accounts with balances: ${nonZero.map((a) => a.accountNumber).join(', ')}`,
                 'NON_ZERO_BALANCE',
             );
@@ -228,17 +233,18 @@ class AccountService {
     ) {
         const account = await accountRepository.findById(accountId);
 
-        if (!account) throw AppError.notFound('Account not found');
+        if (!account) throw new NotFoundError('Account not found');
 
         if (account.userId !== requestingUserId)
-            throw AppError.forbidden('Access denied');
+            throw new ForbiddenError('Access denied');
 
         // Check limit (max 10 beneficiaries)
         const count = await (prisma as any).beneficiary.count({
             where: { accountId, deletedAt: null },
         });
+
         if (count >= 10)
-            throw AppError.badRequest(
+            throw new BadRequestError(
                 'Maximum 10 beneficiaries allowed',
                 'BENEFICIARY_LIMIT_EXCEEDED',
             );
@@ -261,11 +267,11 @@ class AccountService {
     async removeBeneficiary(beneficiaryId: string, requestingUserId: string) {
         const beneficiary = await beneficiaryRepository.findById(beneficiaryId);
 
-        if (!beneficiary) throw AppError.notFound('Beneficiary not found');
+        if (!beneficiary) throw new NotFoundError('Beneficiary not found');
 
         const account = await accountRepository.findById(beneficiary.accountId);
         if (account?.userId !== requestingUserId)
-            throw AppError.forbidden('Access denied');
+            throw new ForbiddenError('Access denied');
 
         await prisma.$transaction(async (tx) => {
             await beneficiaryRepository.softDelete(beneficiaryId, tx);
@@ -282,10 +288,10 @@ class AccountService {
     async listBeneficiaries(accountId: string, requestingUserId: string) {
         const account = await accountRepository.findById(accountId);
 
-        if (!account) throw AppError.notFound('Account not found');
+        if (!account) throw new NotFoundError('Account not found');
 
         if (account.userId !== requestingUserId)
-            throw AppError.forbidden('Access denied');
+            throw new ForbiddenError('Access denied');
 
         return beneficiaryRepository.findByAccountId(accountId);
     }
@@ -297,17 +303,17 @@ class AccountService {
     ) {
         const fromAccount = await accountRepository.findById(fromAccountId);
 
-        if (!fromAccount) throw AppError.notFound('Source account not found');
+        if (!fromAccount) throw new NotFoundError('Source account not found');
 
         if (fromAccount.userId !== requestingUserId)
-            throw AppError.forbidden('Access denied');
+            throw new ForbiddenError('Access denied');
 
         const toAccount = await accountRepository.findById(input.toAccountId);
         if (!toAccount)
-            throw AppError.notFound('Destination account not found');
+            throw new NotFoundError('Destination account not found');
 
         if (input.endDate && input.endDate <= input.startDate)
-            throw AppError.badRequest(
+            throw new BadRequestError(
                 'End date must be after start date',
                 'INVALID_DATE_RANGE',
             );
@@ -335,12 +341,12 @@ class AccountService {
     async pauseStandingOrder(orderId: string, requestingUserId: string) {
         const order = await standingOrderRepository.findById(orderId);
 
-        if (!order) throw AppError.notFound('Standing order not found');
+        if (!order) throw new NotFoundError('Standing order not found');
 
         const account = await accountRepository.findById(order.fromAccountId);
 
         if (account?.userId !== requestingUserId)
-            throw AppError.forbidden('Access denied');
+            throw new ForbiddenError('Access denied');
 
         await prisma.$transaction(async (tx) => {
             await standingOrderRepository.updateStatus(orderId, 'PAUSED', tx);
@@ -357,11 +363,11 @@ class AccountService {
     async resumeStandingOrder(orderId: string, requestingUserId: string) {
         const order = await standingOrderRepository.findById(orderId);
 
-        if (!order) throw AppError.notFound('Standing order not found');
+        if (!order) throw new NotFoundError('Standing order not found');
 
         const account = await accountRepository.findById(order.fromAccountId);
         if (account?.userId !== requestingUserId)
-            throw AppError.forbidden('Access denied');
+            throw new ForbiddenError('Access denied');
 
         await prisma.$transaction(async (tx) => {
             await standingOrderRepository.updateStatus(orderId, 'ACTIVE', tx);
@@ -378,10 +384,10 @@ class AccountService {
     async listStandingOrders(accountId: string, requestingUserId: string) {
         const account = await accountRepository.findById(accountId);
 
-        if (!account) throw AppError.notFound('Account not found');
+        if (!account) throw new NotFoundError('Account not found');
 
         if (account.userId !== requestingUserId)
-            throw AppError.forbidden('Access denied');
+            throw new ForbiddenError('Access denied');
 
         return standingOrderRepository.findByAccountId(accountId);
     }
@@ -393,10 +399,10 @@ class AccountService {
     ) {
         const account = await accountRepository.findById(accountId);
 
-        if (!account) throw AppError.notFound('Account not found');
+        if (!account) throw new NotFoundError('Account not found');
 
         if (account.userId !== requestingUserId)
-            throw AppError.forbidden('Access denied');
+            throw new ForbiddenError('Access denied');
 
         const updated = await prisma.$transaction(async (tx) => {
             return accountPreferencesRepository.upsert(
@@ -420,10 +426,10 @@ class AccountService {
     async getPreferences(accountId: string, requestingUserId: string) {
         const account = await accountRepository.findById(accountId);
 
-        if (!account) throw AppError.notFound('Account not found');
+        if (!account) throw new NotFoundError('Account not found');
 
         if (account.userId !== requestingUserId)
-            throw AppError.forbidden('Access denied');
+            throw new ForbiddenError('Access denied');
 
         return accountPreferencesRepository.findByAccountId(accountId);
     }
@@ -435,10 +441,10 @@ class AccountService {
     ) {
         const account = await accountRepository.findById(accountId);
 
-        if (!account) throw AppError.notFound('Account not found');
+        if (!account) throw new NotFoundError('Account not found');
 
         if (account.userId !== requestingUserId)
-            throw AppError.forbidden('Access denied');
+            throw new ForbiddenError('Access denied');
 
         const updated = await prisma.$transaction(async (tx) => {
             return transactionLimitsRepository.upsert(accountId, limits, tx);
@@ -458,10 +464,10 @@ class AccountService {
     async getTransactionLimits(accountId: string, requestingUserId: string) {
         const account = await accountRepository.findById(accountId);
 
-        if (!account) throw AppError.notFound('Account not found');
+        if (!account) throw new NotFoundError('Account not found');
 
         if (account.userId !== requestingUserId)
-            throw AppError.forbidden('Access denied');
+            throw new ForbiddenError('Access denied');
 
         return transactionLimitsRepository.findByAccountId(accountId);
     }
@@ -495,10 +501,10 @@ class AccountService {
     ) {
         const account = await accountRepository.findById(accountId);
 
-        if (!account) throw AppError.notFound('Account not found');
+        if (!account) throw new NotFoundError('Account not found');
 
         if (account.userId !== requestingUserId)
-            throw AppError.forbidden('Access denied');
+            throw new ForbiddenError('Access denied');
 
         const created = await prisma.$transaction(async (tx) => {
             return alertRepository.create(accountId, alert, tx);
@@ -518,12 +524,12 @@ class AccountService {
     async disableAlert(alertId: string, requestingUserId: string) {
         const alert = await alertRepository.findById(alertId);
 
-        if (!alert) throw AppError.notFound('Alert not found');
+        if (!alert) throw new NotFoundError('Alert not found');
 
         const account = await accountRepository.findById(alert.accountId);
 
         if (account?.userId !== requestingUserId)
-            throw AppError.forbidden('Access denied');
+            throw new ForbiddenError('Access denied');
 
         await prisma.$transaction(async (tx) => {
             await alertRepository.update(alertId, { enabled: false }, tx);
@@ -539,9 +545,9 @@ class AccountService {
 
     async listAlerts(accountId: string, requestingUserId: string) {
         const account = await accountRepository.findById(accountId);
-        if (!account) throw AppError.notFound('Account not found');
+        if (!account) throw new NotFoundError('Account not found');
         if (account.userId !== requestingUserId)
-            throw AppError.forbidden('Access denied');
+            throw new ForbiddenError('Access denied');
 
         return alertRepository.findByAccountId(accountId);
     }
@@ -554,13 +560,13 @@ class AccountService {
     ) {
         const account = await accountRepository.findById(accountId);
 
-        if (!account) throw AppError.notFound('Account not found');
+        if (!account) throw new NotFoundError('Account not found');
 
         if (account.userId !== requestingUserId)
-            throw AppError.forbidden('Access denied');
+            throw new ForbiddenError('Access denied');
 
         if (endDate <= startDate)
-            throw AppError.badRequest(
+            throw new BadRequestError(
                 'End date must be after start date',
                 'INVALID_DATE_RANGE',
             );
@@ -621,10 +627,10 @@ class AccountService {
     ) {
         const account = await accountRepository.findById(accountId);
 
-        if (!account) throw AppError.notFound('Account not found');
+        if (!account) throw new NotFoundError('Account not found');
 
         if (account.userId !== requestingUserId)
-            throw AppError.forbidden('Access denied');
+            throw new ForbiddenError('Access denied');
 
         const skip = (page - 1) * limit;
         const [statements, total] = await Promise.all([
@@ -643,10 +649,10 @@ class AccountService {
     ): Promise<SpendingByCategory[]> {
         const account = await accountRepository.findById(accountId);
 
-        if (!account) throw AppError.notFound('Account not found');
+        if (!account) throw new NotFoundError('Account not found');
 
         if (account.userId !== requestingUserId)
-            throw AppError.forbidden('Access denied');
+            throw new ForbiddenError('Access denied');
 
         const transactions = await prisma.transaction.findMany({
             where: {
@@ -697,10 +703,10 @@ class AccountService {
     ): Promise<SpendingTrend[]> {
         const account = await accountRepository.findById(accountId);
 
-        if (!account) throw AppError.notFound('Account not found');
+        if (!account) throw new NotFoundError('Account not found');
 
         if (account.userId !== requestingUserId)
-            throw AppError.forbidden('Access denied');
+            throw new ForbiddenError('Access denied');
 
         const trends: SpendingTrend[] = [];
         const now = new Date();
@@ -747,10 +753,10 @@ class AccountService {
     ): Promise<TopMerchant[]> {
         const account = await accountRepository.findById(accountId);
 
-        if (!account) throw AppError.notFound('Account not found');
+        if (!account) throw new NotFoundError('Account not found');
 
         if (account.userId !== requestingUserId)
-            throw AppError.forbidden('Access denied');
+            throw new ForbiddenError('Access denied');
 
         const transactions = await prisma.transaction.findMany({
             where: {
