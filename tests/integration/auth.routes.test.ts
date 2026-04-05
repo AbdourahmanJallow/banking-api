@@ -42,7 +42,13 @@ vi.mock('bcrypt', () => ({
     },
 }));
 
-// ── Imports ───────────────────────────────────────────────────────────────────
+vi.mock('../../src/modules/users/user.service', () => ({
+    userService: {
+        recordFailedLogin: vi.fn().mockResolvedValue(undefined),
+        recordSuccessfulLogin: vi.fn().mockResolvedValue(undefined),
+        validateTOTP: vi.fn().mockResolvedValue(true),
+    },
+}));
 
 import prisma from '../../src/lib/prisma';
 import bcrypt from 'bcrypt';
@@ -50,7 +56,7 @@ import { createApp } from '../../src/app';
 
 const app = createApp();
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// ── Helpers
 
 const mockUser = {
     id: 'user-id-123',
@@ -60,9 +66,13 @@ const mockUser = {
     status: 'ACTIVE',
     phone: null,
     createdAt: new Date(),
+    emailVerified: true,
+    lockedUntil: null,
+    totpEnabled: false,
+    failedLoginAttempts: 0,
 };
 
-// ── POST /api/auth/register ────────────────────────────────────────────────────
+// ── POST /api/auth/register
 
 describe('POST /api/auth/register', () => {
     beforeEach(() => vi.clearAllMocks());
@@ -106,7 +116,7 @@ describe('POST /api/auth/register', () => {
     });
 });
 
-// ── POST /api/auth/login ───────────────────────────────────────────────────────
+// ── POST /api/auth/login
 
 describe('POST /api/auth/login', () => {
     beforeEach(() => vi.clearAllMocks());
@@ -148,7 +158,7 @@ describe('POST /api/auth/login', () => {
     });
 });
 
-// ── GET /api/auth/me ───────────────────────────────────────────────────────────
+// ── GET /api/auth/me
 
 describe('GET /api/auth/me', () => {
     beforeEach(() => vi.clearAllMocks());
@@ -187,7 +197,7 @@ describe('GET /api/auth/me', () => {
     });
 });
 
-// ── POST /api/auth/logout ─────────────────────────────────────────────────────
+// ── POST /api/auth/logout
 
 describe('POST /api/auth/logout', () => {
     beforeEach(() => vi.clearAllMocks());
@@ -216,7 +226,7 @@ describe('POST /api/auth/logout', () => {
     });
 });
 
-// ── POST /api/auth/refresh ────────────────────────────────────────────────────
+// ── POST /api/auth/refresh
 
 describe('POST /api/auth/refresh', () => {
     beforeEach(() => vi.clearAllMocks());

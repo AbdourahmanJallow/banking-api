@@ -82,6 +82,14 @@ vi.mock('bcrypt', () => ({
     },
 }));
 
+vi.mock('../../src/modules/users/user.service', () => ({
+    userService: {
+        recordFailedLogin: vi.fn().mockResolvedValue(undefined),
+        recordSuccessfulLogin: vi.fn().mockResolvedValue(undefined),
+        validateTOTP: vi.fn().mockResolvedValue(true),
+    },
+}));
+
 vi.mock('../../src/utils/generateAccountNumber', () => ({
     generateAccountNumber: vi.fn().mockReturnValue('ACC1234567890'),
 }));
@@ -104,6 +112,10 @@ const mockUser = {
     status: 'ACTIVE',
     phone: null,
     createdAt: new Date(),
+    emailVerified: true,
+    lockedUntil: null,
+    totpEnabled: false,
+    failedLoginAttempts: 0,
 };
 
 const mockAccount = {
