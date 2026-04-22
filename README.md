@@ -190,6 +190,20 @@ GET /admin/transactions
 
 ---
 
+# Swagger Documentation
+
+This project exposes OpenAPI documentation using Swagger UI.
+
+After starting the server:
+
+- Swagger UI: http://localhost:3000/api-docs
+- OpenAPI JSON: http://localhost:3000/api-docs.json
+
+The API endpoints are documented under the `/api/v1` base path and include
+JWT bearer authentication for protected routes.
+
+---
+
 # Deployment
 
 The application can be deployed using Docker and hosted on cloud platforms such as:

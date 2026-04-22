@@ -7,6 +7,7 @@ import { config } from './config';
 import { logger } from './middleware/logger';
 import limiter from './middleware/rateLimiter';
 import { errorHandler } from './middleware/errorHandler';
+import { setupSwagger } from './docs/swagger';
 
 export function createApp(): Express {
     const app = express();
@@ -52,6 +53,8 @@ export function createApp(): Express {
     app.get('/health', (_req: Request, res: Response) => {
         res.json({ status: 'ok', timestamp: new Date().toISOString() });
     });
+
+    setupSwagger(app);
 
     app.use('/api/v1', apiRouter);
 

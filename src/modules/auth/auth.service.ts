@@ -62,7 +62,7 @@ class AuthService {
                 email: input.email,
                 passwordHash,
                 fullName: input.fullName,
-                phone: input.phone,
+                phone: input.phone ?? '',
             },
         });
 
